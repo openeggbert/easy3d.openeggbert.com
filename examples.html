@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minimal Example — Easy3D Documentation</title>
+<meta name="description" content="A walkthrough of Easy3D's bundled minimal example: cameras, orbit rig, and a CNA-free texture atlas.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html" class="active">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Minimal Example</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Examples / Minimal Example</p>
+
+  <div class="hero">
+    <p>The repository ships one example, <code>examples/minimal</code>. Its point is the <em>shape</em> of the API: a real game still drives CNA directly (Game loop, <code>GraphicsDevice</code>, input, …) — Easy3D only helps with the camera, batching, atlases, and debug drawing.</p>
+  </div>
+
+  <div class="note">This target only builds when CNA is linked (<code>-DEASY3D_LINK_CNA=ON</code>, or a parent-provided <code>CNA</code> target), because constructing a <code>Camera3D</code> / using CNA math requires CNA's compiled code. See <a href="building.html">Building &amp; CMake</a>.</div>
+
+  <h2>The full program</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/Easy3D.hpp&gt;</span>
+
+<span class="op">#include</span> <span class="st">&lt;iostream&gt;</span>
+
+<span class="kw">int</span> <span class="fn">main</span>()
+{
+    std::cout &lt;&lt; <span class="st">"Easy3D "</span> &lt;&lt; <span class="ty">Easy3D</span>::<span class="fn">VersionString</span>() &lt;&lt; <span class="st">'\n'</span>;
+
+    <span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">Camera3D</span>::Vector3;
+
+    <span class="cm">// Easy3D helps configure a camera; CNA Matrix values come straight back out.</span>
+    <span class="ty">Easy3D</span>::<span class="ty">Camera3D</span> camera;
+    camera.<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="nm">0.0f</span>, <span class="nm">3.0f</span>, <span class="nm">8.0f</span>));
+    camera.<span class="fn">SetTarget</span>(<span class="ty">Vector3</span>::Zero);
+
+    <span class="kw">const auto</span> view = camera.<span class="fn">GetViewMatrix</span>();        <span class="cm">// Microsoft::Xna::Framework::Matrix</span>
+    <span class="kw">const auto</span> projection = camera.<span class="fn">GetProjectionMatrix</span>();
+    (<span class="kw">void</span>)view;
+    (<span class="kw">void</span>)projection;
+
+    <span class="cm">// An orbit camera is just a helper that positions the same Camera3D.</span>
+    <span class="ty">Easy3D</span>::<span class="ty">OrbitCamera</span> orbit;
+    orbit.<span class="fn">SetDistance</span>(<span class="nm">12.0f</span>);
+    orbit.<span class="fn">SetYaw</span>(<span class="nm">0.6f</span>);
+    orbit.<span class="fn">ApplyTo</span>(camera);
+
+    <span class="kw">const</span> Vector3&amp; eye = camera.<span class="fn">GetPosition</span>();
+    std::cout &lt;&lt; <span class="st">"camera eye: ("</span> &lt;&lt; eye.X &lt;&lt; <span class="st">", "</span> &lt;&lt; eye.Y &lt;&lt; <span class="st">", "</span> &lt;&lt; eye.Z &lt;&lt; <span class="st">")\n"</span>;
+
+    <span class="cm">// A small, CNA-free texture atlas (e.g. Blupi sprite frames).</span>
+    <span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> atlas(<span class="nm">256</span>, <span class="nm">256</span>);
+    atlas.<span class="fn">Add</span>(<span class="st">"blupi_idle_0"</span>, <span class="ty">Easy3D</span>::<span class="ty">AtlasRect</span>{<span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">32</span>, <span class="nm">48</span>});
+    <span class="kw">const</span> <span class="ty">Easy3D</span>::<span class="ty">UvRect</span> uv = atlas.<span class="fn">GetUv</span>(<span class="st">"blupi_idle_0"</span>);
+    std::cout &lt;&lt; <span class="st">"atlas regions: "</span> &lt;&lt; atlas.<span class="fn">Count</span>()
+              &lt;&lt; <span class="st">", blupi_idle_0 UV0: ("</span> &lt;&lt; uv.U0 &lt;&lt; <span class="st">", "</span> &lt;&lt; uv.V0 &lt;&lt; <span class="st">")\n"</span>;
+
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</code></pre>
+
+  <h2>What it demonstrates, piece by piece</h2>
+
+  <h3>1. One umbrella header</h3>
+  <p><code>&lt;Easy3D/Easy3D.hpp&gt;</code> pulls in every public helper: <code>Version</code>, the three cameras, both batches, <code>CubeMesh</code>, <code>TextureAtlas</code>, and <code>DebugDraw</code>.</p>
+
+  <h3>2. CNA types come straight back out</h3>
+  <p><code>GetViewMatrix()</code> returns a raw <code>Microsoft::Xna::Framework::Matrix</code>. There is no Easy3D matrix type — the values plug directly into CNA rendering code. The <code>Vector3</code> alias on <code>Camera3D</code> is a convenience, not a wrapper.</p>
+
+  <h3>3. Camera rigs position a plain Camera3D</h3>
+  <p><code>OrbitCamera</code> does not own a camera. It computes an eye position from target + yaw/pitch/distance and pushes it into the <code>Camera3D</code> via <code>ApplyTo()</code>. With the defaults (<code>pitch = 0.3</code>) and the values set here, the printed eye lands at roughly <code>(6.47, 3.55, 9.46)</code>.</p>
+
+  <h3>4. The atlas is CNA-free</h3>
+  <p><code>TextureAtlas</code> works entirely in plain pixel rectangles and normalized UVs — the printed UV top-left for <code>blupi_idle_0</code> is <code>(0, 0)</code>, and the region's bottom-right works out to <code>(0.125, 0.1875)</code> on a 256×256 atlas.</p>
+
+  <h2>Building and running it</h2>
+<pre><code>cmake -S . -B build -DEASY3D_LINK_CNA=ON
+cmake --build build
+./build/examples/minimal/easy3d_minimal        <span class="cm"># path may vary by generator</span></code></pre>
+  <p>Expected output (abridged):</p>
+<pre><code>Easy3D 0.1.0
+camera eye: (6.47308, 3.54624, 9.46168)
+atlas regions: 1, blupi_idle_0 UV0: (0, 0)</code></pre>
+  <div class="note">In the default (headers-only) build the example is not built as an executable — but it is still compile-checked, so API drift is caught either way. See <a href="testing.html">Testing</a> for how that works.</div>
+
+  <h2>Next</h2>
+  <p>For patterns closer to real game code — spritesheet animation, cube terrain, camera rigs in an update loop — continue to <a href="recipes.html">Recipes</a>.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

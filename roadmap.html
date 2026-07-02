@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roadmap &amp; Status — Easy3D Documentation</title>
+<meta name="description" content="Easy3D's conservative phased roadmap: scaffold, cameras, data-side batching, CPU vertex builders, CNA renderer adapters, Galaxy Eggbert support.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html" class="active">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Roadmap &amp; Status</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Guide / Roadmap &amp; Status</p>
+
+  <div class="hero">
+    <p>This roadmap is intentionally <strong>conservative</strong>. Easy3D grows only as far as Galaxy Eggbert actually needs it. If a feature is not needed soon, it is not built. Anything not listed here is out of scope until explicitly approved.</p>
+  </div>
+
+  <div class="phase done">
+    <h3>Phase 0 — Scaffold <span class="status">done</span></h3>
+    <ul>
+      <li>Build system (CMake, C++23, <code>easy3d</code> static library target).</li>
+      <li>Documentation (<code>README.md</code>, architecture/roadmap/questions docs, contribution rules).</li>
+      <li>Minimal helper classes (compilable stubs) and a self-contained test.</li>
+    </ul>
+  </div>
+
+  <div class="phase done">
+    <h3>Phase 1 — Camera helpers <span class="status">done</span></h3>
+    <ul>
+      <li><a href="camera3d.html"><code>Easy3D::Camera3D</code></a> — position/target/up + FOV/aspect/near/far, producing CNA view and projection <code>Matrix</code> values.</li>
+      <li><a href="orbit-camera.html"><code>Easy3D::OrbitCamera</code></a> — target + yaw/pitch/distance orbit camera.</li>
+      <li><a href="follow-camera.html"><code>Easy3D::FollowCamera</code></a> — smoothed follow camera (target + offset + smoothing).</li>
+    </ul>
+  </div>
+
+  <div class="phase done">
+    <h3>Phase 2 — Data-side batching and atlas helpers <span class="status">done</span></h3>
+    <p>Non-rendering, CPU-side data storage — no GPU work, no draw calls.</p>
+    <ul>
+      <li><a href="texture-atlas.html"><code>Easy3D::TextureAtlas</code></a> — named sub-rectangles + UV lookup, plus <code>AddGrid</code> (spritesheet grid insertion) and <code>GetUvOrDefault</code> (non-throwing lookup).</li>
+      <li><a href="billboard-batch.html"><code>Easy3D::BillboardBatch</code></a> — queues <code>BillboardItem</code> (position, size, UV, origin, rotation) for camera-facing quads.</li>
+      <li><a href="cube-batch.html"><code>Easy3D::CubeBatch</code></a> — queues <code>CubeItem</code> (center, size, UV) for cubes / tiles.</li>
+      <li><a href="debug-draw.html"><code>Easy3D::DebugDraw</code></a> — queues <code>DebugLine</code> / <code>DebugBox</code> for development overlays.</li>
+    </ul>
+  </div>
+
+  <div class="phase wip">
+    <h3>Phase 3 — CPU-side vertex builders <span class="status">in progress</span></h3>
+    <p>Turn queued <code>BillboardItem</code> / <code>CubeItem</code> / <code>DebugLine</code> / <code>DebugBox</code> data into vertex/index arrays (CPU-side geometry only) — still no GPU calls, no <code>GraphicsDevice</code>, no shaders.</p>
+    <ul>
+      <li><strong>Done:</strong> <a href="cube-mesh.html"><code>AppendCubeMesh</code> / <code>BuildCubeMesh</code></a> — <code>CubeBatch</code> items → plain <code>std::vector</code> vertex/index arrays.</li>
+      <li><strong>Remaining:</strong> billboard and debug-line vertex builders.</li>
+    </ul>
+  </div>
+
+  <div class="phase future">
+    <h3>Phase 4 — CNA renderer adapters <span class="status">future</span></h3>
+    <p>Consume the Phase 3 vertex/index data and actually issue CNA draw calls (<code>GraphicsDevice</code>, <code>BasicEffect</code>/<code>SpriteBatch</code>, vertex/index buffers). This is the first phase that requires a concrete CNA draw-path decision.</p>
+  </div>
+
+  <div class="phase future">
+    <h3>Phase 5 — Galaxy Eggbert support <span class="status">future</span></h3>
+    <ul>
+      <li>Render Blupi as a <strong>billboard</strong> using existing Mobile Eggbert animation frames.</li>
+      <li>Render simple <strong>cube / tile terrain</strong>.</li>
+      <li>Provide <strong>debug drawing</strong> (lines, boxes) for development.</li>
+      <li><strong>Keep all Eggbert-specific logic outside Easy3D</strong> — Easy3D supplies generic billboard/cube/atlas/debug helpers only; the meaning of tiles, animation tables, and gameplay live in Galaxy Eggbert.</li>
+    </ul>
+  </div>
+
+  <div class="phase future">
+    <h3>Phase 6 — Optional future <span class="status">no implementation yet</span></h3>
+    <ul>
+      <li><strong>Lua: discussion only.</strong> Lua is currently undecided and intentionally out of scope. If it ever happens it would be an optional, separate module (working name <code>easy3d-lua</code>), and only after explicit approval. No Lua code before then.</li>
+      <li>Possible later: simple HUD/2D helpers (<code>Easy3D::Hud2D</code>), and a discussion about whether Easy3D should ever load 3D models (vs. staying billboard / cube / tile only).</li>
+    </ul>
+  </div>
+
+  <h2>Current build &amp; test status</h2>
+  <table>
+    <tr><th>Configuration</th><th>Builds</th><th>Tests</th></tr>
+    <tr><td>Default (headers-only)</td><td><code>libeasy3d.a</code> + CNA-free tests + compile-only checks of the CNA-dependent tests/example</td><td><code>basics</code>, <code>texture_atlas</code> pass</td></tr>
+    <tr><td>CNA-linked (<code>-DEASY3D_LINK_CNA=ON</code>)</td><td>SHARP_RUNTIME + backend + CNA + easy3d + camera example + all test executables</td><td><code>basics</code>, <code>texture_atlas</code>, <code>camera</code>, <code>batches</code>, <code>cube_mesh</code> pass</td></tr>
+  </table>
+  <p>See <a href="testing.html">Testing</a> for how the two-tier test setup works.</p>
+
+  <h2>Hard limits (do not cross without explicit approval)</h2>
+  <p>No ECS, physics, navigation, networking, editor, asset database, resource cache, model importer, MeshCraft import, plugin system, or PBR renderer. The reasoning is on <a href="design-principles.html">Design Principles</a>.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

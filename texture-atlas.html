@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TextureAtlas — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::TextureAtlas API reference — named sub-rectangles within a texture, spritesheet grid insertion, and normalized UV lookup. Completely CNA-free.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html" class="active">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>TextureAtlas <span class="badge cna-free">CNA-free</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / TextureAtlas</p>
+
+  <div class="hero">
+    <p><code>Easy3D::TextureAtlas</code> maps names to sub-rectangles of a single atlas texture and converts them to normalized UVs. It is deliberately small and <strong>CNA-free</strong>: it deals only in plain pixel rectangles and normalized UVs. Loading the actual texture is the caller's job (via CNA); this class only remembers where each region lives.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/TextureAtlas.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span>
+{
+    <span class="kw">struct</span> <span class="ty">AtlasRect</span>;   <span class="cm">// pixel rectangle inside the atlas texture</span>
+    <span class="kw">struct</span> <span class="ty">UvRect</span>;      <span class="cm">// normalized texture coordinates</span>
+    <span class="kw">class</span>  <span class="ty">TextureAtlas</span>;
+}</code></pre>
+
+  <h2>The POD types</h2>
+  <p><code>AtlasRect</code> and <code>UvRect</code> are Easy3D-local PODs, since pixel/UV rectangles are not CNA concepts. This is the one deliberate exception to "use CNA types everywhere" — it keeps the atlas CNA-free and unit-testable on its own.</p>
+
+  <h3>AtlasRect — a pixel rectangle</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>X</code></td><td><code>int</code></td><td><code>0</code></td><td>Left edge, in pixels.</td></tr>
+    <tr><td><code>Y</code></td><td><code>int</code></td><td><code>0</code></td><td>Top edge, in pixels.</td></tr>
+    <tr><td><code>Width</code></td><td><code>int</code></td><td><code>0</code></td><td>Width in pixels.</td></tr>
+    <tr><td><code>Height</code></td><td><code>int</code></td><td><code>0</code></td><td>Height in pixels.</td></tr>
+  </table>
+
+  <h3>UvRect — normalized texture coordinates</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>U0</code></td><td><code>float</code></td><td><code>0</code></td><td rowspan="2">Top-left corner.</td></tr>
+    <tr><td><code>V0</code></td><td><code>float</code></td><td><code>0</code></td></tr>
+    <tr><td><code>U1</code></td><td><code>float</code></td><td><code>0</code></td><td rowspan="2">Bottom-right corner.</td></tr>
+    <tr><td><code>V1</code></td><td><code>float</code></td><td><code>0</code></td></tr>
+  </table>
+  <p><code>UvRect</code> also appears in <a href="billboard-batch.html"><code>BillboardItem</code></a> and <a href="cube-batch.html"><code>CubeItem</code></a>, where the batches use <code>{0,0,1,1}</code> (the full texture) as the default region.</p>
+
+  <h2>Construction &amp; atlas size</h2>
+  <div class="method">
+    <div class="sig">TextureAtlas() = default<br>TextureAtlas(int atlasWidth, int atlasHeight) noexcept</div>
+    <div class="desc">Create an atlas, optionally with the texture's pixel dimensions. The size is needed for UV computation — with a zero/unset size, <code>GetUv()</code>/<code>GetUvOrDefault()</code> return a zeroed <code>UvRect</code>.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void SetAtlasSize(int width, int height) noexcept<br>[[nodiscard]] int AtlasWidth() const noexcept<br>[[nodiscard]] int AtlasHeight() const noexcept</div>
+    <div class="desc">Set/read the atlas texture's pixel dimensions.</div>
+  </div>
+
+  <h2>Registering regions</h2>
+  <div class="method">
+    <div class="sig">void Add(std::string name, const AtlasRect&amp; rect)</div>
+    <div class="desc">Register (or overwrite) a named region. Adding an existing name replaces the previous rectangle.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void AddGrid(std::string_view prefix,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int frameWidth, int frameHeight,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int columns, int rows,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int startX = 0, int startY = 0,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int spacingX = 0, int spacingY = 0)</div>
+    <div class="desc"><p>Register a grid of named regions from a spritesheet: <code>prefix + "_0"</code>, <code>prefix + "_1"</code>, … in row-major order (first row left to right, then the next row).</p>
+    <p>Frame <code>i</code> sits at pixel <code>(startX + col*(frameWidth+spacingX), startY + row*(frameHeight+spacingY))</code> with size <code>frameWidth × frameHeight</code>, where <code>col = i % columns</code>, <code>row = i / columns</code>. Internally calls <code>Add()</code> for each frame, so it shares <code>Add()</code>'s overwrite-on-duplicate-name behavior.</p>
+    <p>Throws <code>std::invalid_argument</code> if <code>prefix</code> is empty; if <code>frameWidth</code>, <code>frameHeight</code>, <code>columns</code>, or <code>rows</code> is ≤ 0; or if <code>startX</code>/<code>startY</code>/<code>spacingX</code>/<code>spacingY</code> is negative.</p></div>
+  </div>
+
+  <h2>Lookup</h2>
+  <div class="method">
+    <div class="sig">[[nodiscard]] bool Contains(std::string_view name) const</div>
+    <div class="desc">Whether a region with this name exists. Not <code>noexcept</code>: the lookup allocates a temporary <code>std::string</code> key, which can in principle throw <code>std::bad_alloc</code>.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] const AtlasRect&amp; GetRect(std::string_view name) const</div>
+    <div class="desc">Look up a region by name, in pixels. Throws <code>std::out_of_range</code> if <code>name</code> is unknown.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] UvRect GetUv(std::string_view name) const</div>
+    <div class="desc">Normalized UVs for a region, using the current atlas size. Throws <code>std::out_of_range</code> if <code>name</code> is unknown. Returns a zeroed <code>UvRect</code> if the atlas size is unset (≤ 0).</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] UvRect GetUvOrDefault(std::string_view name, const UvRect&amp; fallback = {}) const</div>
+    <div class="desc">Normalized UVs for a region, or <code>fallback</code> if <code>name</code> is unknown — unlike <code>GetUv()</code>, an unknown name is not an error. Not <code>noexcept</code> (temporary key allocation). Returns a zeroed <code>UvRect</code> if the name exists but the atlas size is unset.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] std::size_t Count() const noexcept<br>[[nodiscard]] bool Empty() const noexcept</div>
+    <div class="desc">Number of registered regions / whether none are registered.</div>
+  </div>
+
+  <h3>Strict vs. lenient lookup</h3>
+  <table>
+    <tr><th>Situation</th><th><code>GetUv(name)</code></th><th><code>GetUvOrDefault(name, fb)</code></th></tr>
+    <tr><td>Name registered, atlas size set</td><td>UVs</td><td>UVs</td></tr>
+    <tr><td>Name registered, atlas size unset</td><td>zeroed <code>UvRect</code></td><td>zeroed <code>UvRect</code></td></tr>
+    <tr><td>Name unknown</td><td>throws <code>std::out_of_range</code></td><td>returns <code>fb</code></td></tr>
+  </table>
+  <div class="tip">Use <code>GetUv()</code> for regions that must exist (a typo is a bug you want to hear about) and <code>GetUvOrDefault()</code> for optional content, e.g. an animation frame that may be missing from an older spritesheet.</div>
+
+  <h2>UV math</h2>
+  <p>UVs are computed by dividing pixel coordinates by the atlas dimensions:</p>
+<pre><code>U0 = X / atlasWidth            V0 = Y / atlasHeight
+U1 = (X + Width) / atlasWidth  V1 = (Y + Height) / atlasHeight</code></pre>
+
+  <h2>Example — a spritesheet in one call</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/TextureAtlas.hpp&gt;</span>
+
+<span class="cm">// A 256x256 spritesheet with 8 columns x 4 rows of 32x48 walk frames,</span>
+<span class="cm">// starting at pixel (0, 64), no spacing between frames.</span>
+<span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> atlas(<span class="nm">256</span>, <span class="nm">256</span>);
+atlas.<span class="fn">AddGrid</span>(<span class="st">"walk"</span>, <span class="nm">32</span>, <span class="nm">48</span>, <span class="nm">8</span>, <span class="nm">4</span>, <span class="nm">0</span>, <span class="nm">64</span>);
+
+<span class="cm">// Registered as walk_0 .. walk_31, row-major.</span>
+atlas.<span class="fn">Contains</span>(<span class="st">"walk_31"</span>);              <span class="cm">// true</span>
+<span class="kw">const auto</span> rect = atlas.<span class="fn">GetRect</span>(<span class="st">"walk_9"</span>);   <span class="cm">// {32, 112, 32, 48}: col 1, row 1</span>
+<span class="kw">const auto</span> uv   = atlas.<span class="fn">GetUv</span>(<span class="st">"walk_9"</span>);     <span class="cm">// {0.125, 0.4375, 0.25, 0.625}</span>
+
+<span class="cm">// Lenient lookup with a fallback (full texture) for optional frames:</span>
+<span class="kw">const auto</span> maybe = atlas.<span class="fn">GetUvOrDefault</span>(<span class="st">"walk_99"</span>, {<span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">1</span>, <span class="nm">1</span>});</code></pre>
+
+  <h2>What TextureAtlas does not do</h2>
+  <ul>
+    <li>It does <strong>not</strong> load, own, or reference the texture itself — pair it with a texture you load via CNA.</li>
+    <li>It does <strong>not</strong> pack rectangles; you tell it where regions live.</li>
+    <li>It describes <strong>one</strong> texture. Use one <code>TextureAtlas</code> instance per atlas texture.</li>
+  </ul>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

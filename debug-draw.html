@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DebugDraw — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::DebugDraw API reference — queues debug primitives (lines, axis-aligned boxes) for development overlays.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html" class="active">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>DebugDraw</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / DebugDraw</p>
+
+  <div class="hero">
+    <p><code>Easy3D::DebugDraw</code> queues debug primitives — line segments and axis-aligned boxes — for development overlays. <code>Line()</code>/<code>Box()</code> store one <code>DebugLine</code>/<code>DebugBox</code> per call; <code>Lines()</code>/<code>Boxes()</code> expose them so a future CPU-side vertex builder / CNA draw path can consume them. <strong>This class does no GPU work itself.</strong></p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/DebugDraw.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span>
+{
+    <span class="kw">struct</span> <span class="ty">DebugLine</span>;
+    <span class="kw">struct</span> <span class="ty">DebugBox</span>;
+    <span class="kw">class</span>  <span class="ty">DebugDraw</span>;
+}</code></pre>
+
+  <div class="note">Queueing is pure data storage, but constructing the CNA <code>Vector3</code> values you pass in calls CNA's compiled constructors — so executables using this class link CNA in practice. See <a href="building.html">Building &amp; CMake</a>.</div>
+
+  <h2>The primitive types</h2>
+  <h3>DebugLine</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>From</code></td><td><code>Vector3</code></td><td>Segment start, world space.</td></tr>
+    <tr><td><code>To</code></td><td><code>Vector3</code></td><td>Segment end, world space.</td></tr>
+  </table>
+  <h3>DebugBox</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>Center</code></td><td><code>Vector3</code></td><td>World-space center of the box.</td></tr>
+    <tr><td><code>Size</code></td><td><code>Vector3</code></td><td>Full extents along X/Y/Z; the box is axis-aligned.</td></tr>
+  </table>
+
+  <h2>Type aliases</h2>
+  <table>
+    <tr><th>Alias</th><th>Refers to</th></tr>
+    <tr><td><code>DebugDraw::Vector3</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td></tr>
+  </table>
+
+  <h2>API</h2>
+  <div class="method">
+    <div class="sig">void Clear() noexcept</div>
+    <div class="desc">Drop all queued primitives (both lines and boxes). Typically called once per frame before re-queueing.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Line(const Vector3&amp; from, const Vector3&amp; to)</div>
+    <div class="desc">Queue a line segment.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Box(const Vector3&amp; center, const Vector3&amp; size)</div>
+    <div class="desc">Queue an axis-aligned box.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] std::size_t LineCount() const noexcept<br>[[nodiscard]] std::size_t BoxCount() const noexcept<br>[[nodiscard]] std::size_t PrimitiveCount() const noexcept</div>
+    <div class="desc">Number of queued lines / boxes / both together (<code>PrimitiveCount() == LineCount() + BoxCount()</code>).</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] const std::vector&lt;DebugLine&gt;&amp; Lines() const noexcept<br>[[nodiscard]] const std::vector&lt;DebugBox&gt;&amp; Boxes() const noexcept</div>
+    <div class="desc">The queued primitives, in call order — the hand-off point for a future vertex builder or your own overlay renderer.</div>
+  </div>
+  <div class="note">Unlike the batches, <code>DebugDraw</code> has no <code>Begin()</code>/<code>End()</code> pair — debug primitives are not a "batch you flush" but a bag you <code>Clear()</code> whenever it suits your debugging flow (per frame, or accumulated across frames while paused).</div>
+
+  <h2>Example — visualizing collision data</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/DebugDraw.hpp&gt;</span>
+
+<span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">DebugDraw</span>::Vector3;
+
+<span class="ty">Easy3D</span>::<span class="ty">DebugDraw</span> debug;
+
+<span class="cm">// Each frame:</span>
+debug.<span class="fn">Clear</span>();
+
+<span class="cm">// Mark the player's bounding box.</span>
+debug.<span class="fn">Box</span>(player.Position, <span class="ty">Vector3</span>(<span class="nm">0.8f</span>, <span class="nm">1.6f</span>, <span class="nm">0.8f</span>));
+
+<span class="cm">// Draw the velocity vector.</span>
+debug.<span class="fn">Line</span>(player.Position, player.Position + player.Velocity);
+
+<span class="cm">// A little world-origin axis cross.</span>
+debug.<span class="fn">Line</span>(<span class="ty">Vector3</span>::Zero, <span class="ty">Vector3</span>(<span class="nm">1</span>, <span class="nm">0</span>, <span class="nm">0</span>));
+debug.<span class="fn">Line</span>(<span class="ty">Vector3</span>::Zero, <span class="ty">Vector3</span>(<span class="nm">0</span>, <span class="nm">1</span>, <span class="nm">0</span>));
+debug.<span class="fn">Line</span>(<span class="ty">Vector3</span>::Zero, <span class="ty">Vector3</span>(<span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">1</span>));
+
+<span class="cm">// Later: iterate debug.Lines() / debug.Boxes() in your overlay renderer.</span></code></pre>
+
+  <h2>Scope</h2>
+  <p>Deliberately minimal: no colors, no durations/timers, no spheres or text. Those may or may not arrive later — only if Galaxy Eggbert needs them (see <a href="design-principles.html">Design Principles</a>). Rendering the queued primitives is Roadmap Phase&nbsp;3/4 work, same as the other batches.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Principles — Easy3D Documentation</title>
+<meta name="description" content="The deliberate boundaries of Easy3D: companion not engine, CNA types stay visible, hard limits, and the recorded design decisions behind them.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html" class="active">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Design Principles</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Guide / Design Principles</p>
+
+  <div class="hero">
+    <p>Easy3D has unusually explicit boundaries, written down before the code. The project's history includes several larger 3D abstraction attempts (Simple3D, Nova-3D, MeshCraft, Mesh World); Easy3D exists precisely to <em>not</em> repeat them. These principles are enforced in code review and documented so they survive contributors and time.</p>
+  </div>
+
+  <h2>Principle 1 — Companion, not engine</h2>
+  <p>Easy3D sits <em>beside</em> CNA. A game still creates and drives its CNA <code>Game</code>, graphics device, and input directly. Easy3D removes repetitive glue only: cameras, billboard/cube batching, a texture atlas, debug drawing. There is no <code>Easy3D::Game</code>, no "run everything" object, and there never will be.</p>
+
+  <h2>Principle 2 — CNA types stay visible</h2>
+  <p>Easy3D APIs accept and return <code>Microsoft::Xna::Framework::Vector3</code>, <code>Matrix</code>, and friends directly. No parallel math types, no wrappers that exist just to rename CNA. Consequences you will notice in the API:</p>
+  <ul>
+    <li>Classes expose convenience aliases like <code>Easy3D::Camera3D::Vector3</code>, which are simply <code>Microsoft::Xna::Framework::Vector3</code>.</li>
+    <li><code>Camera3D::GetViewMatrix()</code> returns a raw CNA <code>Matrix</code> — you hand it straight to CNA rendering code.</li>
+    <li>The single deliberate exception: <a href="texture-atlas.html"><code>TextureAtlas</code></a> uses tiny Easy3D-local PODs (<code>AtlasRect</code>, <code>UvRect</code>), because pixel/UV rectangles are not CNA concepts. This keeps the atlas CNA-free and unit-testable on its own.</li>
+  </ul>
+
+  <h2>Principle 3 — Small, boring, testable</h2>
+  <p>Minimal helper classes over frameworks. One small change at a time. Every helper that can be tested without linking all of CNA has such a test (see <a href="testing.html">Testing</a>). The batching classes deliberately do <em>no GPU work</em> — they store plain data, which is trivially testable, and rendering arrives in a later phase as a separate, decidable step.</p>
+
+  <h2>Principle 4 — Grow only when needed</h2>
+  <p>Easy3D grows only as far as its first consumer, Galaxy Eggbert, actually needs. If a feature is not needed soon, it is not built now. Anything not on the <a href="roadmap.html">Roadmap</a> is out of scope until explicitly approved.</p>
+
+  <h2>Hard limits</h2>
+  <p>The following are out of bounds without explicit approval. If you find yourself building any of these, it does not belong in Easy3D:</p>
+  <table>
+    <tr><th>Excluded</th><th>Why</th></tr>
+    <tr><td>Entity/component framework (ECS)</td><td>Engine territory; games structure themselves.</td></tr>
+    <tr><td>Physics, navigation, networking</td><td>Full-engine subsystems, far beyond glue code.</td></tr>
+    <tr><td>Scene editor, asset database, resource cache, plugin system</td><td>Tooling/infrastructure that belongs to an engine or the game.</td></tr>
+    <tr><td>Model importer / MeshCraft import</td><td>Easy3D stays billboard / cube / tile only (see Decision 6 below).</td></tr>
+    <tr><td>PBR renderer or any "full engine" subsystem</td><td>Easy3D is not a renderer; even its future draw path will be thin CNA adapters.</td></tr>
+    <tr><td>Lua scripting</td><td>Currently out of scope; see Decision 5 below.</td></tr>
+    <tr><td>Eggbert-specific logic</td><td>Tile meanings, animation tables, level formats, gameplay rules live in the games.</td></tr>
+  </table>
+
+  <h2>Recorded design decisions</h2>
+  <p>The repository keeps a decision log (<code>docs/QUESTIONS.md</code>). The decisions so far, summarized:</p>
+
+  <h3>1. CNA math types are used directly</h3>
+  <p>Camera helpers and batch items use CNA's <code>Vector3</code>/<code>Vector2</code>/<code>Matrix</code> directly — no aliases, no wrappers. The linkage consequence (CNA types are defined in CNA's <code>.cpp</code> files) is accepted and handled by the build system. <code>TextureAtlas</code> keeps its own PODs for pixel/UV rectangles.</p>
+
+  <h3>2. The CNA CMake target is <code>CNA</code></h3>
+  <p>Confirmed as the stable, public target name Easy3D relies on: a <code>STATIC</code>, C++23 library whose <code>PUBLIC</code> include directory is <code>../cna/include</code>.</p>
+
+  <h3>3. CNA linkage is opt-in</h3>
+  <p>Linking CNA pulls in heavy transitive dependencies, so the default build stays headers-only and the camera example/tests are gated behind <code>EASY3D_LINK_CNA</code> (default <code>OFF</code>) or a parent-provided <code>CNA</code> target. The <code>add_subdirectory</code> + parent-target-detection approach is sufficient; no <code>find_package(CNA)</code> config or prebuilt-library path is needed for now.</p>
+
+  <h3>4. Compiled static library, not header-only</h3>
+  <p>Easy3D is a normal compiled <code>STATIC</code> library (<code>easy3d</code>). Header-only was considered and rejected.</p>
+
+  <h3>5. Lua is out of scope</h3>
+  <p>Lua is intentionally not part of this version. If it is ever approved, it would be an optional, separate module within the repository (working name <code>easy3d-lua</code>) — but no Lua code is added before explicit approval.</p>
+
+  <h3>6. Billboard / cube / tile only — no 3D models</h3>
+  <p>For the first Galaxy Eggbert versions, Easy3D supports no 3D model loading or import. That remains a hard limit unless separately, explicitly approved later.</p>
+
+  <h3>7. Blupi renders as a billboard</h3>
+  <p>Galaxy Eggbert will initially render Blupi as a 2D billboard built from existing Mobile Eggbert sprite animations. <a href="billboard-batch.html"><code>BillboardBatch</code></a> + <a href="texture-atlas.html"><code>TextureAtlas</code></a> are the two Easy3D pieces this needs — no 3D model path required.</p>
+
+  <h2>Relationship to earlier libraries</h2>
+  <p>Easy3D is <strong>not</strong> Simple3D and must not grow back into Simple3D; it is not Nova-3D or a Urho3D-style abstraction either. Nez, libGDX, and Simple3D serve as conceptual inspiration only — their code is never copied. The recurring failure mode Easy3D guards against: a "helper library" accreting subsystems until it hides the runtime underneath. Every hard limit above exists because some predecessor crossed it.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

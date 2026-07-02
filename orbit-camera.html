@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrbitCamera — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::OrbitCamera API reference — a turntable camera computing an eye position from target + yaw/pitch/distance.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html" class="active">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>OrbitCamera <span class="badge cna-link">requires CNA link</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Cameras / OrbitCamera</p>
+
+  <div class="hero">
+    <p><code>Easy3D::OrbitCamera</code> computes an eye position orbiting a target — a classic turntable camera. It stores a target and spherical orbit parameters (yaw, pitch, distance). It does <em>not</em> own a <a href="camera3d.html"><code>Camera3D</code></a>; call <code>ApplyTo()</code> to push the computed position/target into one.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/OrbitCamera.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span> { <span class="kw">class</span> <span class="ty">OrbitCamera</span>; }</code></pre>
+
+  <h2>Type aliases</h2>
+  <table>
+    <tr><th>Alias</th><th>Refers to</th></tr>
+    <tr><td><code>OrbitCamera::Vector3</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td></tr>
+  </table>
+
+  <h2>Defaults</h2>
+  <table>
+    <tr><th>Property</th><th>Default</th><th>Notes</th></tr>
+    <tr><td>Target</td><td><code>(0, 0, 0)</code></td><td><code>Vector3::Zero</code></td></tr>
+    <tr><td>Yaw</td><td><code>0</code> rad</td><td>Horizontal angle around the target</td></tr>
+    <tr><td>Pitch</td><td><code>0.3</code> rad</td><td>≈ 17° above the horizontal plane</td></tr>
+    <tr><td>Distance</td><td><code>10</code></td><td></td></tr>
+  </table>
+
+  <h2>API</h2>
+  <div class="method">
+    <div class="sig">[[nodiscard]] const Vector3&amp; GetTarget() const noexcept<br>void SetTarget(const Vector3&amp; value) noexcept</div>
+    <div class="desc">The world-space point being orbited.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] float GetYaw() const noexcept<br>void SetYaw(float radians) noexcept</div>
+    <div class="desc">Horizontal angle around the target, in radians.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] float GetPitch() const noexcept<br>void SetPitch(float radians) noexcept</div>
+    <div class="desc">Vertical angle above the target's horizontal plane, in radians.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] float GetDistance() const noexcept<br>void SetDistance(float value) noexcept</div>
+    <div class="desc">Distance from the target to the computed eye position.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] Vector3 ComputePosition() const</div>
+    <div class="desc">The eye position implied by target + yaw/pitch/distance. Requires linking CNA (constructs a CNA <code>Vector3</code>).</div>
+  </div>
+  <div class="method">
+    <div class="sig">void ApplyTo(Camera3D&amp; camera) const</div>
+    <div class="desc">Pushes <code>ComputePosition()</code> and the target into a <a href="camera3d.html"><code>Camera3D</code></a> (sets target first, then position). Requires linking CNA.</div>
+  </div>
+
+  <h2>The math</h2>
+  <p><code>ComputePosition()</code> places the eye on a sphere of radius <code>distance</code> around the target:</p>
+<pre><code>eye.X = target.X + distance * cos(pitch) * sin(yaw)
+eye.Y = target.Y + distance * sin(pitch)
+eye.Z = target.Z + distance * cos(pitch) * cos(yaw)</code></pre>
+  <ul>
+    <li>With <code>yaw = 0</code> and <code>pitch = 0</code>, the eye sits on the +Z side of the target, looking down −Z toward it — matching CNA/XNA's right-handed convention.</li>
+    <li>Increasing <code>pitch</code> raises the eye above the target's horizontal plane; <code>pitch = π/2</code> looks straight down.</li>
+    <li><code>yaw</code> spins the eye around the world Y axis through the target.</li>
+  </ul>
+  <div class="note">Pitch is not clamped. If you drive it from input, clamp it yourself (e.g. to <code>±1.5</code> rad) to avoid flipping over the top of the target — see the <a href="recipes.html">Recipes</a> page.</div>
+
+  <h2>Example</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/Camera3D.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;Easy3D/OrbitCamera.hpp&gt;</span>
+
+<span class="ty">Easy3D</span>::<span class="ty">Camera3D</span>    camera;
+<span class="ty">Easy3D</span>::<span class="ty">OrbitCamera</span> orbit;
+
+orbit.<span class="fn">SetTarget</span>(playerPosition);
+orbit.<span class="fn">SetDistance</span>(<span class="nm">12.0f</span>);
+orbit.<span class="fn">SetYaw</span>(<span class="nm">0.6f</span>);
+orbit.<span class="fn">SetPitch</span>(<span class="nm">0.35f</span>);
+
+orbit.<span class="fn">ApplyTo</span>(camera);   <span class="cm">// camera now orbits the player</span>
+
+<span class="kw">const auto</span> view = camera.<span class="fn">GetViewMatrix</span>();</code></pre>
+
+  <div class="tip"><code>OrbitCamera</code> holds no per-frame state — it is a pure function of its four parameters. You can freely recompute or share it, and drive yaw/pitch directly from accumulated mouse input each frame.</div>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

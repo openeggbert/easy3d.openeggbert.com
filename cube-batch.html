@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CubeBatch — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::CubeBatch API reference — collects axis-aligned cube/tile items (center, size, UV) for later drawing, e.g. block terrain.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html" class="active">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>CubeBatch</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / CubeBatch</p>
+
+  <div class="hero">
+    <p><code>Easy3D::CubeBatch</code> collects axis-aligned cubes / tiles for later drawing. The intended use is simple cube/tile terrain — e.g. a Blupi level rendered as blocks. <code>Add()</code> stores one <code>CubeItem</code> per call; <code>Items()</code> exposes them for a CPU-side vertex builder (<a href="cube-mesh.html"><code>BuildCubeMesh</code></a> already exists) or a future CNA draw path. <strong>This class does no GPU work itself.</strong></p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeBatch.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span>
+{
+    <span class="kw">struct</span> <span class="ty">CubeItem</span>;
+    <span class="kw">class</span>  <span class="ty">CubeBatch</span>;
+}</code></pre>
+
+  <div class="note">Queueing is pure data storage, but constructing the CNA <code>Vector3</code> values you pass in calls CNA's compiled constructors — so executables using this class link CNA in practice. See <a href="building.html">Building &amp; CMake</a>.</div>
+
+  <h2>CubeItem</h2>
+  <p>One queued axis-aligned cube/tile:</p>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Center</code></td><td><code>Vector3</code></td><td>—</td><td>World-space center of the cube.</td></tr>
+    <tr><td><code>Size</code></td><td><code>Vector3</code></td><td>—</td><td>Full extents along X/Y/Z (so a unit cube is <code>{1,1,1}</code>).</td></tr>
+    <tr><td><code>Uv</code></td><td><code>UvRect</code></td><td><code>{0, 0, 1, 1}</code></td><td>Texture-atlas region (see <a href="texture-atlas.html"><code>TextureAtlas::GetUv</code>/<code>GetUvOrDefault</code></a>) applied to every face. Defaults to the full texture.</td></tr>
+  </table>
+  <div class="note"><code>CubeItem</code> stores <strong>one atlas region per cube, not one per face</strong> — all six faces sample the same region. Per-face UVs are not part of the current scope.</div>
+
+  <h2>Type aliases</h2>
+  <table>
+    <tr><th>Alias</th><th>Refers to</th></tr>
+    <tr><td><code>CubeBatch::Vector3</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td></tr>
+  </table>
+
+  <h2>API</h2>
+  <div class="method">
+    <div class="sig">void Begin() noexcept</div>
+    <div class="desc">Discard any queued cubes, starting a fresh batch.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Add(const Vector3&amp; center, const Vector3&amp; size)</div>
+    <div class="desc">Queue one cube centred at <code>center</code> with the given <code>size</code> and a full-texture UV.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Add(const Vector3&amp; center, const Vector3&amp; size, const UvRect&amp; uv)</div>
+    <div class="desc">Queue one cube sampling the atlas region <code>uv</code>.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Add(const CubeItem&amp; item)</div>
+    <div class="desc">Queue a fully specified cube item.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void End() noexcept</div>
+    <div class="desc">Flush queued cubes — currently a no-op (no GPU work yet).</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Clear() noexcept</div>
+    <div class="desc">Discard any queued cubes (equivalent to <code>Begin()</code>).</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] bool Empty() const noexcept<br>[[nodiscard]] std::size_t Count() const noexcept</div>
+    <div class="desc">Whether the queue is empty / how many items are queued.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] const std::vector&lt;CubeItem&gt;&amp; Items() const noexcept</div>
+    <div class="desc">The queued cubes, in <code>Add()</code> order — consumed by <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a> or your own draw code.</div>
+  </div>
+
+  <h2>Example — tile terrain from a 2D map</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeBatch.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;Easy3D/TextureAtlas.hpp&gt;</span>
+
+<span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">CubeBatch</span>::Vector3;
+
+<span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> tiles(<span class="nm">128</span>, <span class="nm">128</span>);
+tiles.<span class="fn">AddGrid</span>(<span class="st">"tile"</span>, <span class="nm">32</span>, <span class="nm">32</span>, <span class="nm">4</span>, <span class="nm">4</span>);
+
+<span class="ty">Easy3D</span>::<span class="ty">CubeBatch</span> terrain;
+terrain.<span class="fn">Begin</span>();
+
+<span class="kw">for</span> (<span class="kw">int</span> z = <span class="nm">0</span>; z &lt; mapDepth; ++z)
+{
+    <span class="kw">for</span> (<span class="kw">int</span> x = <span class="nm">0</span>; x &lt; mapWidth; ++x)
+    {
+        <span class="kw">const int</span> tile = map[z][x];          <span class="cm">// the game's tile semantics stay in the game</span>
+        <span class="kw">if</span> (tile &lt; <span class="nm">0</span>) <span class="kw">continue</span>;             <span class="cm">// empty cell</span>
+        terrain.<span class="fn">Add</span>(<span class="ty">Vector3</span>(x + <span class="nm">0.5f</span>, <span class="nm">0.5f</span>, z + <span class="nm">0.5f</span>),   <span class="cm">// cube center</span>
+                    <span class="ty">Vector3</span>(<span class="nm">1.0f</span>, <span class="nm">1.0f</span>, <span class="nm">1.0f</span>),
+                    tiles.<span class="fn">GetUv</span>(<span class="st">"tile_"</span> + std::to_string(tile)));
+    }
+}
+
+terrain.<span class="fn">End</span>();
+<span class="cm">// Turn the queued cubes into CPU-side geometry — see CubeMesh.</span></code></pre>
+
+  <h2>From queue to geometry</h2>
+  <p><code>CubeBatch</code> is the first stage of the data-first pipeline; <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a> is the second — it turns the queued items into plain vertex/index arrays you can upload and draw with CNA. See <a href="architecture.html">Architecture</a> for the pipeline picture.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

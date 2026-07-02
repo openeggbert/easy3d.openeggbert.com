@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQ — Easy3D Documentation</title>
+<meta name="description" content="Frequently asked questions about Easy3D: why no rendering yet, why CNA types are exposed, linker errors, Lua, 3D models, and licensing.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html" class="active">FAQ</a>
+</nav>
+<main>
+  <h1>FAQ</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Examples / FAQ</p>
+
+  <h2>Why doesn't Easy3D actually draw anything?</h2>
+  <p>By design, for now. Easy3D is built in deliberate phases: the batching classes (Phase&nbsp;2) store plain data, the vertex builders (Phase&nbsp;3, in progress) turn that data into CPU-side geometry, and only Phase&nbsp;4 will issue actual CNA draw calls. This keeps every step testable without a GPU and defers the concrete CNA draw-path decision (<code>BasicEffect</code>? <code>SpriteBatch</code>? raw buffers?) to the phase that actually needs it. Until then, <code>Items()</code>/<code>Lines()</code>/<code>Boxes()</code> and <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a> give your game everything it needs to draw with CNA directly. See the <a href="roadmap.html">Roadmap</a>.</p>
+
+  <h2>Why are CNA types exposed in the API instead of wrapped?</h2>
+  <p>Because Easy3D is a companion, not an abstraction layer. Hiding CNA behind Easy3D types would make Easy3D a middleman for everything — exactly the engine-shaped drift the project guards against. Easy3D functions take and return <code>Microsoft::Xna::Framework::Vector3</code>, <code>Matrix</code>, and friends directly, so the values plug straight into the CNA code your game already writes. The reasoning is spelled out in <a href="design-principles.html">Design Principles</a>.</p>
+
+  <h2>I get linker errors like <em>undefined reference to <code>Vector3::Vector3(float, float, float)</code></em>. What's wrong?</h2>
+  <p>You are executing CNA math without linking the CNA library. CNA's math types are declared in headers but defined in CNA's compiled <code>.cpp</code> files, so the code compiles and then fails at link time. Fixes:</p>
+  <ul>
+    <li>In a game: <code>add_subdirectory(../cna)</code> <em>before</em> <code>add_subdirectory(../easy-3d)</code>, and link <code>CNA</code> (Easy3D then links it automatically too).</li>
+    <li>Standalone: configure with <code>-DEASY3D_LINK_CNA=ON</code>.</li>
+  </ul>
+  <p>Full details on <a href="building.html">Building &amp; CMake</a>.</p>
+
+  <h2>Do I need to build all of CNA (SDL3, ffmpeg, …) just to use Easy3D?</h2>
+  <p>No — that's the point of the default build. It compiles the <code>easy3d</code> library against CNA's <em>headers</em> only and runs the CNA-free tests. You only pay for the full CNA build when your executable actually runs CNA math (cameras, batch item construction), which for a real game is true anyway.</p>
+
+  <h2>Is TextureAtlas really usable without CNA?</h2>
+  <p>Yes — completely. <a href="texture-atlas.html"><code>TextureAtlas</code></a> deliberately uses its own small PODs (<code>AtlasRect</code>, <code>UvRect</code>) and never touches CNA types. It builds, runs, and is unit-tested in the default headers-only build.</p>
+
+  <h2>Will Easy3D get Lua scripting?</h2>
+  <p>Not currently. Lua is intentionally out of scope for this version. If it is ever approved, it would be an optional, separate module (working name <code>easy3d-lua</code>) — and no Lua code lands before that explicit approval. See the <a href="roadmap.html">Roadmap</a>, Phase&nbsp;6.</p>
+
+  <h2>Will Easy3D load 3D models?</h2>
+  <p>No — Easy3D stays billboard / cube / tile only for the first Galaxy Eggbert versions. A model importer is one of the recorded hard limits; whether Easy3D should <em>ever</em> load models is at most a future discussion. See <a href="design-principles.html">Design Principles</a>.</p>
+
+  <h2>What are Galaxy Eggbert, Mobile Eggbert, and Blupi?</h2>
+  <p><em>Speedy Blupi</em> (a.k.a. <em>Speedy Eggbert</em>) is a classic 2D platformer; <em>Mobile Eggbert</em> is an existing remake of it in the same project family. <strong>Galaxy Eggbert</strong> is a planned 3D remake — and Easy3D's first concrete consumer. The plan: Blupi rendered as a <a href="billboard-batch.html">billboard</a> from existing Mobile Eggbert sprite frames, levels as <a href="cube-batch.html">cube/tile terrain</a>. All Eggbert-specific logic (tile meanings, animation tables, gameplay) lives in the game, never in Easy3D.</p>
+
+  <h2>How does Easy3D relate to Simple3D / Nova-3D / MeshCraft?</h2>
+  <p>They are earlier, larger 3D abstraction attempts in the same project family. Easy3D is explicitly <em>not</em> them and must not grow back into them — no ECS, no engine object hierarchy, no model pipeline. They serve as conceptual lessons only; their code is never copied into Easy3D.</p>
+
+  <h2>Why is FollowCamera's smoothing defined against 1/60 s?</h2>
+  <p>The smoothing value means "fraction of the remaining gap closed per 1/60 s of elapsed time" — a fixed reference that makes the value frame-rate independent (30, 60, and 144 fps all behave the same). The 60 is kept for continuity with tuning done when the project's game loop targeted 60 fps and is part of the value's contract. The math is on the <a href="follow-camera.html">FollowCamera</a> page.</p>
+
+  <h2>What license is Easy3D under?</h2>
+  <p>Easy3D is licensed under the <strong>MIT License</strong>. CNA itself is licensed under the Microsoft Public License (Ms-PL); Easy3D only <em>uses</em> CNA's public headers — it does not copy CNA source.</p>
+
+  <h2>Can I contribute a feature?</h2>
+  <p>Keep it small, boring, and testable — and check the <a href="roadmap.html">Roadmap</a> and <a href="design-principles.html">Design Principles</a> first. Features on the hard-limit list (ECS, physics, model import, Lua, …) need explicit approval from the project owner <em>before</em> any code. If a helper only makes sense for Galaxy Eggbert or Mobile Eggbert, it belongs in that project instead. When you add behavior that can be tested without linking all of CNA, add a small test (see <a href="testing.html">Testing</a>), and keep the default build green.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

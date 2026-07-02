@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture — Easy3D Documentation</title>
+<meta name="description" content="How Easy3D relates to CNA: the companion-library model, dependency direction, header/linkage split, and sibling repository layout.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html" class="active">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Architecture</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Guide / Architecture</p>
+
+  <div class="hero">
+    <p>Easy3D is a <strong>companion library, not an engine</strong>. It sits <em>beside</em> CNA: a game still creates and drives its CNA <code>Game</code>, devices, graphics device, and input directly. Easy3D only removes repetitive glue — cameras, billboard/cube batching, a texture atlas, debug drawing.</p>
+  </div>
+
+  <h2>The big picture</h2>
+<pre><code>Galaxy Eggbert
+  -&gt; uses CNA directly
+  -&gt; uses Easy3D helpers
+  -&gt; may use Mobile Eggbert as existing reference/library/data source
+
+Easy3D
+  -&gt; depends on CNA
+  -&gt; does not hide CNA
+  -&gt; contains helper classes only
+
+CNA
+  -&gt; XNA 4.0-style runtime and future CNA/NOXNA extensions</code></pre>
+
+  <h2>Dependency direction</h2>
+<pre><code>galaxy-eggbert ──depends on──&gt; easy-3d ──depends on──&gt; cna
+        │                                               ▲
+        └───────────────── also depends on ─────────────┘
+                       (uses CNA directly too)</code></pre>
+  <p>Easy3D depends on CNA. Nothing in CNA depends on Easy3D. A game depends on both, and is free to call CNA directly whenever Easy3D does not help.</p>
+
+  <h2>Principles</h2>
+  <h3>Easy3D APIs may expose CNA types</h3>
+  <p>It is normal and encouraged for Easy3D functions to take or return <code>Microsoft::Xna::Framework::Vector3</code>, <code>Matrix</code>, and friends. Easy3D must not invent parallel math types that hide CNA, and must not wrap CNA objects just to rename them. The one deliberate exception: <a href="texture-atlas.html"><code>TextureAtlas</code></a> uses two small Easy3D-local PODs (<code>AtlasRect</code>, <code>UvRect</code>) because pixel/UV rectangles are not CNA concepts — this also keeps it CNA-free and unit-testable on its own.</p>
+
+  <h3>The intended design — CNA stays in charge</h3>
+<pre><code><span class="cm">// A bad design (Easy3D hiding everything):</span>
+<span class="ty">Easy3D</span>::<span class="ty">Game</span> game;
+game.<span class="fn">RunEverything</span>();   <span class="cm">// NO — this is not what Easy3D is for</span>
+
+<span class="cm">// The intended design (CNA stays in charge, Easy3D just helps):</span>
+<span class="ty">Easy3D</span>::<span class="ty">Camera3D</span>     camera;
+<span class="ty">Easy3D</span>::<span class="ty">OrbitCamera</span>  orbit;
+<span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> atlas;</code></pre>
+
+  <h3>Eggbert-specific rules stay out of Easy3D</h3>
+  <p>Anything that only makes sense for Galaxy Eggbert / Mobile Eggbert — tile meanings, Blupi animation tables, level formats, gameplay rules — belongs in those projects, never in Easy3D. Likewise, Mobile Eggbert is an existing, working reference and is not refactored just because Galaxy Eggbert (or Easy3D) would find it convenient.</p>
+
+  <h2>How Easy3D consumes CNA</h2>
+  <ul>
+    <li>CNA's public headers are under <code>../cna/include</code> (namespace <code>Microsoft::Xna::Framework</code>).</li>
+    <li>CNA's CMake library target is named <code>CNA</code> — a <code>STATIC</code> library built with C++23. It links SHARP_RUNTIME, a graphics backend target, and (privately) SDL3 / ffmpeg.</li>
+    <li>CNA math types such as <code>Vector3</code> and <code>Matrix</code> are <em>declared</em> in headers but <em>defined</em> in CNA's compiled <code>.cpp</code> files. Therefore:
+      <ul>
+        <li>The <code>easy3d</code> static library <strong>compiles</strong> against CNA headers alone.</li>
+        <li>Code that actually <strong>executes</strong> CNA math (e.g. <code>Camera3D::GetViewMatrix()</code>) must <strong>link</strong> the <code>CNA</code> library at final link time.</li>
+      </ul>
+    </li>
+    <li>Easy3D's CMake resolves CNA linkage three ways — parent-provided target, standalone <code>-DEASY3D_LINK_CNA=ON</code>, or headers-only. When CNA is linked, <code>EASY3D_HAS_CNA_LINK</code> is defined. Full details on <a href="building.html">Building &amp; CMake</a>.</li>
+    <li>Easy3D does <strong>not</strong> depend on <code>sharp-runtime</code> directly, even though CNA does (it comes in transitively when CNA is linked).</li>
+  </ul>
+
+  <h2>Sibling repository layout</h2>
+<pre><code>.../openeggbert/
+  ├── cna/            &lt;- required: the CNA runtime (headers under cna/include)
+  ├── sharp-runtime/  &lt;- optional: used by CNA; Easy3D does NOT depend on it (yet)
+  └── easy-3d/        &lt;- the Easy3D repository</code></pre>
+
+  <h2>Anatomy of the library</h2>
+  <p>The public API is nine headers under <code>include/Easy3D/</code>, plus the umbrella header <code>Easy3D.hpp</code> that includes them all:</p>
+  <table>
+    <tr><th>Header</th><th>Provides</th><th>CNA at runtime?</th></tr>
+    <tr><td><code>Easy3D/Version.hpp</code></td><td><a href="version.html">Version macros, constants, <code>VersionString()</code></a></td><td>No</td></tr>
+    <tr><td><code>Easy3D/Camera3D.hpp</code></td><td><a href="camera3d.html"><code>Camera3D</code></a></td><td>Yes (matrices)</td></tr>
+    <tr><td><code>Easy3D/OrbitCamera.hpp</code></td><td><a href="orbit-camera.html"><code>OrbitCamera</code></a></td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/FollowCamera.hpp</code></td><td><a href="follow-camera.html"><code>FollowCamera</code></a></td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/TextureAtlas.hpp</code></td><td><a href="texture-atlas.html"><code>TextureAtlas</code>, <code>AtlasRect</code>, <code>UvRect</code></a></td><td>No (CNA-free)</td></tr>
+    <tr><td><code>Easy3D/BillboardBatch.hpp</code></td><td><a href="billboard-batch.html"><code>BillboardBatch</code>, <code>BillboardItem</code></a></td><td>Stores CNA types</td></tr>
+    <tr><td><code>Easy3D/CubeBatch.hpp</code></td><td><a href="cube-batch.html"><code>CubeBatch</code>, <code>CubeItem</code></a></td><td>Stores CNA types</td></tr>
+    <tr><td><code>Easy3D/CubeMesh.hpp</code></td><td><a href="cube-mesh.html"><code>CubeVertex</code>, <code>AppendCubeMesh</code>, <code>BuildCubeMesh</code></a></td><td>Yes (Vector3 math)</td></tr>
+    <tr><td><code>Easy3D/DebugDraw.hpp</code></td><td><a href="debug-draw.html"><code>DebugDraw</code>, <code>DebugLine</code>, <code>DebugBox</code></a></td><td>Stores CNA types</td></tr>
+  </table>
+
+  <h2>The data-first pipeline</h2>
+  <p>Easy3D is being built in deliberate phases (see the <a href="roadmap.html">Roadmap</a>). The batching classes are <em>data recorders</em>, not renderers:</p>
+  <div class="layer-diagram">
+    <div class="layer">1. Queue data — <code>BillboardBatch</code> / <code>CubeBatch</code> / <code>DebugDraw</code> store plain items <em>(done)</em></div>
+    <div class="arrow">↓</div>
+    <div class="layer hl">2. Build CPU-side geometry — e.g. <code>BuildCubeMesh()</code> → <code>std::vector</code> of vertices/indices <em>(in progress)</em></div>
+    <div class="arrow">↓</div>
+    <div class="layer">3. CNA renderer adapters — upload buffers, issue CNA draw calls <em>(future, Phase 4)</em></div>
+  </div>
+  <p>This keeps every step testable without a GPU, and defers the concrete CNA draw-path decision to the phase that actually needs it.</p>
+
+  <h2>What Easy3D is deliberately NOT</h2>
+  <p>No ECS, no generic engine object hierarchy, no Lua, no physics, no navigation, no networking, no editor, no asset database, no resource cache, no model importer, no plugin system, no PBR renderer. If one of these starts to appear, it is a sign Easy3D is drifting toward being an engine — stop and reconsider. See <a href="design-principles.html">Design Principles</a>.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

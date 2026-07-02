@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BillboardBatch — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::BillboardBatch API reference — collects camera-facing billboard quads (position, size, UV, origin, rotation) for later drawing.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html" class="active">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>BillboardBatch</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / BillboardBatch</p>
+
+  <div class="hero">
+    <p><code>Easy3D::BillboardBatch</code> collects billboards — camera-facing quads — for later drawing. The intended use is rendering sprites (such as Blupi) as billboards from existing 2D frames. <code>Add()</code> stores one <code>BillboardItem</code> per call; <code>Items()</code> exposes them so a future CPU-side vertex builder / CNA draw path can consume them once that phase starts. <strong>This class does no GPU work itself.</strong></p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/BillboardBatch.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span>
+{
+    <span class="kw">struct</span> <span class="ty">BillboardItem</span>;
+    <span class="kw">class</span>  <span class="ty">BillboardBatch</span>;
+}</code></pre>
+
+  <div class="note">Queueing is pure data storage, but constructing the CNA <code>Vector3</code>/<code>Vector2</code> values you pass in calls CNA's compiled constructors — so executables using this class link CNA in practice. See <a href="building.html">Building &amp; CMake</a>.</div>
+
+  <h2>BillboardItem</h2>
+  <p>One queued camera-facing quad:</p>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>Position</code></td><td><code>Vector3</code></td><td>—</td><td>World position of the billboard.</td></tr>
+    <tr><td><code>Size</code></td><td><code>Vector2</code></td><td>—</td><td>Quad width and height in world units.</td></tr>
+    <tr><td><code>Uv</code></td><td><code>UvRect</code></td><td><code>{0, 0, 1, 1}</code></td><td>Texture-atlas region to sample (see <a href="texture-atlas.html"><code>TextureAtlas::GetUv</code>/<code>GetUvOrDefault</code></a>). Defaults to the full texture.</td></tr>
+    <tr><td><code>Origin</code></td><td><code>Vector2</code></td><td><code>{0.5, 0.5}</code></td><td>Pivot origin, normalized — the default is the quad's center. <code>{0.5, 1.0}</code> would pivot at the bottom-center (useful for characters standing on the ground).</td></tr>
+    <tr><td><code>RotationRadians</code></td><td><code>float</code></td><td><code>0</code></td><td>In-plane rotation around the origin, in radians.</td></tr>
+  </table>
+
+  <h2>Type aliases</h2>
+  <table>
+    <tr><th>Alias</th><th>Refers to</th></tr>
+    <tr><td><code>BillboardBatch::Vector3</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td></tr>
+    <tr><td><code>BillboardBatch::Vector2</code></td><td><code>Microsoft::Xna::Framework::Vector2</code></td></tr>
+  </table>
+
+  <h2>API</h2>
+  <div class="method">
+    <div class="sig">void Begin() noexcept</div>
+    <div class="desc">Discard any queued billboards, starting a fresh batch.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Add(const Vector3&amp; position, const Vector2&amp; size)</div>
+    <div class="desc">Queue one billboard at <code>position</code> with the given <code>size</code>, full-texture UV, centered origin, and no rotation.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Add(const Vector3&amp; position, const Vector2&amp; size, const UvRect&amp; uv)</div>
+    <div class="desc">Queue one billboard sampling the atlas region <code>uv</code> (centered origin, no rotation).</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Add(const BillboardItem&amp; item)</div>
+    <div class="desc">Queue a fully specified billboard item (custom origin and rotation included).</div>
+  </div>
+  <div class="method">
+    <div class="sig">void End() noexcept</div>
+    <div class="desc">Flush queued billboards — currently a no-op (no GPU work yet). Exists so call sites already have the final <code>Begin()</code>/<code>Add()</code>/<code>End()</code> shape.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void Clear() noexcept</div>
+    <div class="desc">Discard any queued billboards (equivalent to <code>Begin()</code>).</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] bool Empty() const noexcept<br>[[nodiscard]] std::size_t Count() const noexcept</div>
+    <div class="desc">Whether the queue is empty / how many items are queued.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] const std::vector&lt;BillboardItem&gt;&amp; Items() const noexcept</div>
+    <div class="desc">The queued billboards, in <code>Add()</code> order. This is the hand-off point for a future vertex builder or your own draw code.</div>
+  </div>
+
+  <h2>Example — sprite frames as billboards</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/BillboardBatch.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;Easy3D/TextureAtlas.hpp&gt;</span>
+
+<span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">BillboardBatch</span>::Vector3;
+
+<span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> atlas(<span class="nm">256</span>, <span class="nm">256</span>);
+atlas.<span class="fn">AddGrid</span>(<span class="st">"blupi_walk"</span>, <span class="nm">32</span>, <span class="nm">48</span>, <span class="nm">8</span>, <span class="nm">1</span>);
+
+<span class="ty">Easy3D</span>::<span class="ty">BillboardBatch</span> billboards;
+billboards.<span class="fn">Begin</span>();
+
+<span class="cm">// A simple walking animation: pick the frame by time.</span>
+<span class="kw">const int</span> frame = <span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(totalSeconds * <span class="nm">10.0f</span>) % <span class="nm">8</span>;
+<span class="ty">Easy3D</span>::<span class="ty">BillboardItem</span> blupi;
+blupi.Position = <span class="ty">Vector3</span>(<span class="nm">2.0f</span>, <span class="nm">0.75f</span>, <span class="nm">5.0f</span>);
+blupi.Size     = {<span class="nm">1.0f</span>, <span class="nm">1.5f</span>};
+blupi.Uv       = atlas.<span class="fn">GetUv</span>(<span class="st">"blupi_walk_"</span> + std::to_string(frame));
+blupi.Origin   = {<span class="nm">0.5f</span>, <span class="nm">1.0f</span>};   <span class="cm">// pivot at the feet</span>
+billboards.<span class="fn">Add</span>(blupi);
+
+billboards.<span class="fn">End</span>();
+
+<span class="cm">// Later: hand billboards.Items() to your draw code (Phase 4 will add CNA adapters).</span></code></pre>
+
+  <h2>Lifecycle pattern</h2>
+  <p>The expected per-frame usage mirrors XNA's <code>SpriteBatch</code> shape:</p>
+<pre><code>billboards.<span class="fn">Begin</span>();      <span class="cm">// clear last frame's items</span>
+<span class="cm">// ... Add() everything visible this frame ...</span>
+billboards.<span class="fn">End</span>();        <span class="cm">// future: flush; today: no-op</span></code></pre>
+  <p>Rendering the queued items is a later roadmap phase — see the <a href="roadmap.html">Roadmap</a> (Phase 3 builds CPU-side vertices, Phase 4 adds CNA draw adapters). Until then, <code>Items()</code> gives you everything needed to draw them yourself with CNA.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

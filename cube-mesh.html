@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CubeMesh — Easy3D Documentation</title>
+<meta name="description" content="Easy3D CubeMesh API reference — AppendCubeMesh/BuildCubeMesh turn queued CubeBatch items into plain CPU-side vertex/index arrays.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html" class="active">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>CubeMesh <span class="badge cna-link">requires CNA link</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / CubeMesh</p>
+
+  <div class="hero">
+    <p>The <code>CubeMesh</code> functions turn queued <a href="cube-batch.html"><code>CubeBatch</code></a> items into plain CPU-side vertex/index arrays (Roadmap Phase&nbsp;3). <strong>No GPU work</strong>: no <code>GraphicsDevice</code>, no vertex/index <em>buffers</em>, no shaders — just <code>std::vector</code> data a caller can later upload.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeMesh.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span>
+{
+    <span class="kw">struct</span> <span class="ty">CubeVertex</span>;
+
+    <span class="kw">void</span> <span class="fn">AppendCubeMesh</span>(<span class="kw">const</span> <span class="ty">CubeItem</span>&amp; item,
+                        std::vector&lt;<span class="ty">CubeVertex</span>&gt;&amp; vertices,
+                        std::vector&lt;std::uint32_t&gt;&amp; indices);
+
+    <span class="kw">void</span> <span class="fn">BuildCubeMesh</span>(<span class="kw">const</span> <span class="ty">CubeBatch</span>&amp; batch,
+                       std::vector&lt;<span class="ty">CubeVertex</span>&gt;&amp; vertices,
+                       std::vector&lt;std::uint32_t&gt;&amp; indices);
+}</code></pre>
+
+  <h2>CubeVertex</h2>
+  <p>One mesh vertex:</p>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>Position</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td><td>World position.</td></tr>
+    <tr><td><code>Uv</code></td><td><code>Microsoft::Xna::Framework::Vector2</code></td><td>Normalized texture coordinate.</td></tr>
+  </table>
+
+  <h2>AppendCubeMesh</h2>
+  <div class="method">
+    <div class="sig">void AppendCubeMesh(const CubeItem&amp; item,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;CubeVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="desc">Appends one cube's triangle mesh — <strong>24 vertices, 36 indices</strong> (6 faces × 4 vertices, so each face can carry its own UV corners) — to existing output arrays. Indices are offset by the vertex count already present in <code>vertices</code>, so results from repeated calls concatenate correctly into one combined mesh.</div>
+  </div>
+  <p>Properties of the generated geometry:</p>
+  <ul>
+    <li><strong>Per-cube counts:</strong> 24 vertices and 36 indices (12 triangles). Vertices are not shared between faces so each face keeps its own UV corners.</li>
+    <li><strong>Face order:</strong> +Z, −Z, +X, −X, +Y, −Y.</li>
+    <li><strong>Winding:</strong> faces are wound counter-clockwise as seen from outside the cube, matching CNA/XNA's right-handed coordinate system (outward face normal = <code>(v1−v0) × (v2−v0)</code>). Standard back-face culling works out of the box.</li>
+    <li><strong>UVs:</strong> every face uses the item's single <code>Uv</code> region on all four of its corners, laid out as <code>(U0,V0)-(U1,V0)-(U1,V1)-(U0,V1)</code> — <code>CubeItem</code> stores one atlas region per cube, not one per face.</li>
+    <li><strong>Index type:</strong> <code>std::uint32_t</code>, so large combined meshes (&gt; 65k vertices) are fine.</li>
+  </ul>
+
+  <h2>BuildCubeMesh</h2>
+  <div class="method">
+    <div class="sig">void BuildCubeMesh(const CubeBatch&amp; batch,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;CubeVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="desc">Builds a combined triangle mesh for every item in <code>batch</code>, in <code>CubeBatch::Items()</code> order. Equivalent to calling <code>AppendCubeMesh</code> for each item in turn against the same <code>vertices</code> / <code>indices</code>.</div>
+  </div>
+  <p>Both functions <em>append</em> — they never clear the output vectors. Clear them yourself when rebuilding from scratch, or exploit the appending to accumulate several batches into one mesh.</p>
+
+  <h2>Example — level terrain to one mesh</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeBatch.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;Easy3D/CubeMesh.hpp&gt;</span>
+
+<span class="ty">Easy3D</span>::<span class="ty">CubeBatch</span> terrain;
+terrain.<span class="fn">Begin</span>();
+<span class="cm">// ... Add() one cube per solid tile (see the CubeBatch page) ...</span>
+terrain.<span class="fn">End</span>();
+
+std::vector&lt;<span class="ty">Easy3D</span>::<span class="ty">CubeVertex</span>&gt; vertices;
+std::vector&lt;std::uint32_t&gt;      indices;
+<span class="ty">Easy3D</span>::<span class="fn">BuildCubeMesh</span>(terrain, vertices, indices);
+
+<span class="cm">// vertices.size() == terrain.Count() * 24</span>
+<span class="cm">// indices.size()  == terrain.Count() * 36</span>
+
+<span class="cm">// The game now owns plain geometry data. Upload it with CNA (vertex/index</span>
+<span class="cm">// buffers + BasicEffect) and draw — Easy3D Phase 4 will add adapters for this.</span></code></pre>
+
+  <h2>Scope and status</h2>
+  <p><code>CubeMesh</code> is the first Phase&nbsp;3 vertex builder. Builders for <a href="billboard-batch.html">billboards</a> and <a href="debug-draw.html">debug lines/boxes</a> are planned next; issuing actual CNA draw calls is Phase&nbsp;4. See the <a href="roadmap.html">Roadmap</a>.</p>
+  <div class="note">There is no visibility optimization (no hidden-face removal between adjacent cubes, no meshing/greedy merge). For the small levels Easy3D targets this is fine; anything smarter would be scope creep until a real consumer needs it.</div>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

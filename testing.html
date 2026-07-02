@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testing — Easy3D Documentation</title>
+<meta name="description" content="Easy3D's two-tier test setup: CNA-free tests that always run, CNA-linked tests, and compile-only checks that catch header drift.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html" class="active">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Testing</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Reference / Testing</p>
+
+  <div class="hero">
+    <p>Easy3D keeps a small test suite registered with CTest (<code>EASY3D_BUILD_TESTS=ON</code> by default). The interesting part is its <strong>two-tier design</strong>: CNA-free tests always build and run, while CNA-dependent tests run when CNA is linked — and are still <em>compile-checked</em> when it is not.</p>
+  </div>
+
+  <h2>The test suite</h2>
+  <table>
+    <tr><th>CTest name</th><th>Covers</th><th>Runs in default build?</th></tr>
+    <tr><td><code>basics</code></td><td>Version info and other CNA-free helpers</td><td>Yes — CNA-free</td></tr>
+    <tr><td><code>texture_atlas</code></td><td><a href="texture-atlas.html"><code>TextureAtlas</code></a>: named rects, <code>AddGrid</code>, UV math, throwing/non-throwing lookups</td><td>Yes — CNA-free</td></tr>
+    <tr><td><code>camera</code></td><td><a href="camera3d.html"><code>Camera3D</code></a>, <a href="orbit-camera.html"><code>OrbitCamera</code></a>, <a href="follow-camera.html"><code>FollowCamera</code></a> — executes real CNA matrix/vector math</td><td>No — needs CNA linked</td></tr>
+    <tr><td><code>batches</code></td><td><a href="billboard-batch.html"><code>BillboardBatch</code></a>, <a href="cube-batch.html"><code>CubeBatch</code></a>, <a href="debug-draw.html"><code>DebugDraw</code></a> item storage</td><td>No — needs CNA linked</td></tr>
+    <tr><td><code>cube_mesh</code></td><td><a href="cube-mesh.html"><code>AppendCubeMesh</code>/<code>BuildCubeMesh</code></a> — vertex counts, index validity, face positions, UV corners, winding</td><td>No — needs CNA linked</td></tr>
+  </table>
+
+  <h2>Running the tests</h2>
+  <h3>Default build — 2 tests</h3>
+<pre><code>cmake -S . -B build
+cmake --build build
+ctest --test-dir build          <span class="cm"># basics, texture_atlas</span></code></pre>
+
+  <h3>CNA-linked build — full suite</h3>
+<pre><code>cmake -S . -B build -DEASY3D_LINK_CNA=ON
+cmake --build build
+ctest --test-dir build          <span class="cm"># basics, texture_atlas, camera, batches, cube_mesh</span></code></pre>
+
+  <h2>Why some tests need CNA linked</h2>
+  <p>The camera, batch, and cube-mesh tests exercise CNA math at runtime — even just constructing <code>Vector3</code>/<code>Vector2</code> values calls CNA's compiled constructors. So <em>running</em> them requires linking CNA. <em>Compiling</em> them does not: CNA's math types are declared in headers and only defined in CNA's <code>.cpp</code> files, so translating the test sources to object code needs only the headers.</p>
+
+  <h2>The compile-check trick</h2>
+  <p>In the default (no-CNA-link) build, the CNA-dependent test sources are still built as <strong><code>OBJECT</code> libraries</strong> — compiled but never linked into an executable, so there are no undefined-symbol errors:</p>
+<pre><code>add_library(easy3d_test_camera_compilecheck    OBJECT test_camera.cpp)
+add_library(easy3d_test_batches_compilecheck   OBJECT test_batches.cpp)
+add_library(easy3d_test_cube_mesh_compilecheck OBJECT test_cube_mesh.cpp)</code></pre>
+  <p>This is a cheap compile-only check that catches CNA header/API drift even in the light default build: if CNA renames a method or changes a signature, the default build breaks immediately instead of waiting for someone to run a CNA-linked build.</p>
+
+  <h2>Test style</h2>
+  <p>The tests are plain C++ programs with a tiny local <code>CHECK</code> macro — no test framework dependency. They print failures with file/line and return a non-zero exit code, which is all CTest needs:</p>
+<pre><code><span class="op">#define</span> <span class="fn">CHECK</span>(cond)                                               \
+    <span class="kw">do</span> {                                                          \
+        <span class="kw">if</span> (!(cond)) {                                            \
+            std::printf(<span class="st">"FAIL: %s (line %d)\n"</span>, #cond, __LINE__); \
+            ++g_failures;                                         \
+        }                                                         \
+    } <span class="kw">while</span> (<span class="nm">0</span>)</code></pre>
+  <p>This matches the project's "small, boring, testable" principle: when you add behavior that can be tested without linking all of CNA, you add or update a small test alongside it.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

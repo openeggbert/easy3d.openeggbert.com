@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recipes — Easy3D Documentation</title>
+<meta name="description" content="Practical Easy3D patterns: spritesheet billboard animation, cube terrain meshes, input-driven orbit cameras, smoothed follow cameras, debug overlays.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html" class="active">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Recipes</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Examples / Recipes</p>
+
+  <div class="hero">
+    <p>Practical patterns built from the current Easy3D API. One thing to keep in mind throughout: Easy3D <strong>does not render yet</strong> — the batches queue data and <code>CubeMesh</code> builds CPU-side geometry. Drawing is your game's job via CNA until the Phase&nbsp;4 renderer adapters exist (see the <a href="roadmap.html">Roadmap</a>).</p>
+  </div>
+
+  <h2>Recipe 1 — Animated sprite billboard from a spritesheet</h2>
+  <p>The Galaxy Eggbert plan in miniature: existing 2D animation frames, registered as an atlas grid, selected per frame, queued as a camera-facing quad pivoted at the feet.</p>
+<pre><code><span class="cm">// Setup (once): the spritesheet is a 256x256 texture, 8 walk frames of 32x48</span>
+<span class="cm">// in one row. Load the texture itself with CNA; the atlas only maps regions.</span>
+<span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> atlas(<span class="nm">256</span>, <span class="nm">256</span>);
+atlas.<span class="fn">AddGrid</span>(<span class="st">"walk"</span>, <span class="nm">32</span>, <span class="nm">48</span>, <span class="nm">8</span>, <span class="nm">1</span>);   <span class="cm">// registers walk_0 .. walk_7</span>
+
+<span class="ty">Easy3D</span>::<span class="ty">BillboardBatch</span> sprites;
+
+<span class="cm">// Per frame:</span>
+sprites.<span class="fn">Begin</span>();
+
+<span class="kw">const int</span>  fps   = <span class="nm">10</span>;
+<span class="kw">const int</span>  frame = <span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(totalSeconds * fps) % <span class="nm">8</span>;
+<span class="kw">const auto</span> uv    = atlas.<span class="fn">GetUvOrDefault</span>(<span class="st">"walk_"</span> + std::to_string(frame));
+
+<span class="ty">Easy3D</span>::<span class="ty">BillboardItem</span> item;
+item.Position = character.Position;
+item.Size     = {<span class="nm">1.0f</span>, <span class="nm">1.5f</span>};       <span class="cm">// world-unit size, matching the 32x48 aspect</span>
+item.Uv       = uv;
+item.Origin   = {<span class="nm">0.5f</span>, <span class="nm">1.0f</span>};       <span class="cm">// pivot at the feet: Position is on the ground</span>
+sprites.<span class="fn">Add</span>(item);
+
+sprites.<span class="fn">End</span>();
+<span class="cm">// sprites.Items() now holds everything a billboard renderer needs.</span></code></pre>
+  <div class="tip"><code>GetUvOrDefault()</code> keeps a missing frame from throwing mid-game; a frame with UV <code>{0,0,0,0}</code> renders as a degenerate (invisible) quad, which is easy to spot and harmless. Use strict <code>GetUv()</code> in loading code where you'd rather fail fast.</div>
+
+  <h2>Recipe 2 — Cube terrain as one mesh</h2>
+  <p>Queue one cube per solid map cell, then bake the whole batch into a single vertex/index array pair. Rebuild only when the level changes, not per frame.</p>
+<pre><code><span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">CubeBatch</span>::Vector3;
+
+<span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> tiles(<span class="nm">128</span>, <span class="nm">128</span>);
+tiles.<span class="fn">AddGrid</span>(<span class="st">"tile"</span>, <span class="nm">32</span>, <span class="nm">32</span>, <span class="nm">4</span>, <span class="nm">4</span>);   <span class="cm">// tile_0 .. tile_15</span>
+
+<span class="ty">Easy3D</span>::<span class="ty">CubeBatch</span> terrain;
+terrain.<span class="fn">Begin</span>();
+<span class="kw">for</span> (<span class="kw">int</span> z = <span class="nm">0</span>; z &lt; depth; ++z)
+    <span class="kw">for</span> (<span class="kw">int</span> x = <span class="nm">0</span>; x &lt; width; ++x)
+        <span class="kw">if</span> (<span class="kw">const int</span> t = level.<span class="fn">TileAt</span>(x, z); t &gt;= <span class="nm">0</span>)   <span class="cm">// tile semantics live in the game</span>
+            terrain.<span class="fn">Add</span>(<span class="ty">Vector3</span>(x + <span class="nm">0.5f</span>, <span class="nm">0.5f</span>, z + <span class="nm">0.5f</span>),
+                        <span class="ty">Vector3</span>(<span class="nm">1</span>, <span class="nm">1</span>, <span class="nm">1</span>),
+                        tiles.<span class="fn">GetUv</span>(<span class="st">"tile_"</span> + std::to_string(t)));
+terrain.<span class="fn">End</span>();
+
+<span class="cm">// Bake once (on load / level change), keep the result:</span>
+std::vector&lt;<span class="ty">Easy3D</span>::<span class="ty">CubeVertex</span>&gt; vertices;
+std::vector&lt;std::uint32_t&gt;      indices;
+<span class="ty">Easy3D</span>::<span class="fn">BuildCubeMesh</span>(terrain, vertices, indices);
+
+<span class="cm">// Upload vertices/indices to CNA vertex/index buffers and draw with a</span>
+<span class="cm">// BasicEffect using camera.GetViewMatrix() / GetProjectionMatrix().</span></code></pre>
+
+  <h2>Recipe 3 — Mouse-driven orbit camera</h2>
+  <p><code>OrbitCamera</code> is stateless per frame — accumulate yaw/pitch from input and reapply. Clamp pitch yourself; the helper deliberately doesn't.</p>
+<pre><code><span class="ty">Easy3D</span>::<span class="ty">Camera3D</span>    camera;
+<span class="ty">Easy3D</span>::<span class="ty">OrbitCamera</span> orbit;
+orbit.<span class="fn">SetDistance</span>(<span class="nm">12.0f</span>);
+
+<span class="cm">// Per frame, from your CNA input handling:</span>
+orbit.<span class="fn">SetYaw</span>(orbit.<span class="fn">GetYaw</span>() + mouseDeltaX * <span class="nm">0.01f</span>);
+orbit.<span class="fn">SetPitch</span>(std::clamp(orbit.<span class="fn">GetPitch</span>() + mouseDeltaY * <span class="nm">0.01f</span>,
+                          -<span class="nm">1.5f</span>, <span class="nm">1.5f</span>));       <span class="cm">// keep away from the poles</span>
+orbit.<span class="fn">SetDistance</span>(std::clamp(orbit.<span class="fn">GetDistance</span>() - wheelDelta, <span class="nm">3.0f</span>, <span class="nm">30.0f</span>));
+orbit.<span class="fn">SetTarget</span>(player.Position);
+orbit.<span class="fn">ApplyTo</span>(camera);</code></pre>
+
+  <h2>Recipe 4 — Smoothed follow camera with teleport handling</h2>
+<pre><code><span class="ty">Easy3D</span>::<span class="ty">Camera3D</span>     camera;
+<span class="ty">Easy3D</span>::<span class="ty">FollowCamera</span> follow;
+follow.<span class="fn">SetOffset</span>({<span class="nm">0.0f</span>, <span class="nm">6.0f</span>, <span class="nm">12.0f</span>});
+follow.<span class="fn">SetSmoothing</span>(<span class="nm">0.15f</span>);   <span class="cm">// 15% of the gap per 1/60 s — frame-rate independent</span>
+
+<span class="cm">// On level start / teleport: snap instead of flying across the level.</span>
+<span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">FollowCamera</span>::Vector3;
+follow.<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(player.Position.X + follow.<span class="fn">GetOffset</span>().X,
+                           player.Position.Y + follow.<span class="fn">GetOffset</span>().Y,
+                           player.Position.Z + follow.<span class="fn">GetOffset</span>().Z));
+
+<span class="cm">// Per frame:</span>
+follow.<span class="fn">Update</span>(player.Position, deltaSeconds);
+follow.<span class="fn">ApplyTo</span>(camera, player.Position);</code></pre>
+  <p>Why not just lerp with <code>t = smoothing * dt</code>? Because that drifts with frame rate. <code>FollowCamera</code> re-derives an exponential decay so consecutive small updates match one big one — details on the <a href="follow-camera.html">FollowCamera</a> page.</p>
+
+  <h2>Recipe 5 — Debug overlay for collision boxes</h2>
+<pre><code><span class="kw">using</span> Vector3 = <span class="ty">Easy3D</span>::<span class="ty">DebugDraw</span>::Vector3;
+<span class="ty">Easy3D</span>::<span class="ty">DebugDraw</span> debug;
+
+<span class="cm">// Per frame (only when the debug overlay is enabled):</span>
+debug.<span class="fn">Clear</span>();
+<span class="kw">for</span> (<span class="kw">const auto</span>&amp; entity : entities)
+{
+    debug.<span class="fn">Box</span>(entity.Position, entity.BoundsSize);
+    debug.<span class="fn">Line</span>(entity.Position, entity.Position + entity.Velocity);
+}
+<span class="cm">// Render debug.Lines()/debug.Boxes() with your line renderer;</span>
+<span class="cm">// PrimitiveCount() is handy for an on-screen stat.</span></code></pre>
+
+  <h2>Recipe 6 — One camera, several rigs</h2>
+  <p>Since both rigs write into a plain <a href="camera3d.html"><code>Camera3D</code></a>, switching camera behavior is just choosing which rig runs this frame:</p>
+<pre><code><span class="kw">switch</span> (cameraMode)
+{
+<span class="kw">case</span> CameraMode::Orbit:    orbit.<span class="fn">ApplyTo</span>(camera); <span class="kw">break</span>;
+<span class="kw">case</span> CameraMode::Follow:   follow.<span class="fn">Update</span>(player.Position, dt);
+                           follow.<span class="fn">ApplyTo</span>(camera, player.Position); <span class="kw">break</span>;
+<span class="kw">case</span> CameraMode::Scripted: camera.<span class="fn">SetPosition</span>(cutscenePos);
+                           camera.<span class="fn">SetTarget</span>(cutsceneTarget); <span class="kw">break</span>;
+}
+<span class="kw">const auto</span> view = camera.<span class="fn">GetViewMatrix</span>();   <span class="cm">// single source of truth</span></code></pre>
+
+  <div class="note">All recipes on this page require linking CNA at runtime (they construct CNA vector values). In a game that pulls in CNA + Easy3D via <code>add_subdirectory</code>, that is automatic — see <a href="building.html">Building &amp; CMake</a>.</div>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting Started — Easy3D Documentation</title>
+<meta name="description" content="How to get Easy3D building on your machine: requirements, repository layout, the default light build, and your first program.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html" class="active">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Getting Started</h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Guide / Getting Started</p>
+
+  <div class="hero">
+    <p>This page gets Easy3D building on your machine in a few minutes: requirements, the expected repository layout, the default (light) build, and a first program. For the full story of CNA linkage and every CMake option, continue to <a href="building.html">Building &amp; CMake</a>.</p>
+  </div>
+
+  <h2>Requirements</h2>
+  <table>
+    <tr><th>Requirement</th><th>Version</th><th>Notes</th></tr>
+    <tr><td>C++ compiler</td><td>C++23-capable</td><td>Easy3D follows CNA and uses C++23 (kept in sync with CNA).</td></tr>
+    <tr><td>CMake</td><td>≥ 3.20</td><td></td></tr>
+    <tr><td>CNA headers</td><td>—</td><td>CNA's public headers must be visible (expected at <code>../cna/include</code>). The default build needs only the <em>headers</em>, not a built CNA.</td></tr>
+  </table>
+
+  <h2>Repository layout</h2>
+  <p>Easy3D expects its sibling repositories to sit next to it, all inside one parent directory:</p>
+<pre><code>.../openeggbert/
+  ├── cna/            &lt;- required: the CNA runtime (headers under cna/include)
+  ├── sharp-runtime/  &lt;- optional: used by CNA; Easy3D does NOT depend on it (yet)
+  └── easy-3d/        &lt;- the Easy3D repository</code></pre>
+  <ul>
+    <li><strong>CNA is expected at <code>../cna</code>.</strong> Its public headers live in <code>../cna/include</code> (namespace <code>Microsoft::Xna::Framework</code>), and its CMake target is named <code>CNA</code>.</li>
+    <li><strong>sharp-runtime may exist at <code>../sharp-runtime</code></strong>, but Easy3D does not depend on it directly. It comes in transitively only when CNA is linked.</li>
+  </ul>
+  <p>If CNA lives somewhere else, point Easy3D at it with <code>-DEASY3D_CNA_DIR=/path/to/cna</code>.</p>
+
+  <h2>The default build (light, headers-only)</h2>
+  <p>The default build is deliberately light and self-contained. It compiles the <code>easy3d</code> static library against CNA's <em>headers</em> alone and runs the CNA-free tests — no SDL, no ffmpeg, no graphics backend:</p>
+<pre><code>cmake -S . -B build
+cmake --build build
+ctest --test-dir build</code></pre>
+  <p>This produces:</p>
+  <ul>
+    <li>the <code>easy3d</code> static library (also exported as the alias <code>easy3d::easy3d</code>), and</li>
+    <li>two self-contained tests — <code>basics</code> and <code>texture_atlas</code> — that exercise the CNA-free helpers.</li>
+  </ul>
+  <div class="note">CNA's math types (<code>Vector3</code>, <code>Matrix</code>, …) are declared in headers but <em>implemented</em> in CNA's compiled <code>.cpp</code> files. The <code>easy3d</code> library compiles fine against the headers alone, but anything that actually <em>runs</em> camera math (e.g. <code>Camera3D::GetViewMatrix()</code>) must link the <code>CNA</code> library. See <a href="building.html">Building &amp; CMake</a> for the three ways this is resolved.</div>
+
+  <h2>Building with CNA linked (cameras at runtime)</h2>
+  <p>To also build and run the camera example and the camera/batch/cube-mesh tests, let Easy3D build CNA itself:</p>
+<pre><code>cmake -S . -B build -DEASY3D_LINK_CNA=ON     <span class="cm"># backend defaults to EASY_GL</span>
+cmake --build build
+ctest --test-dir build                        <span class="cm"># runs all tests, including camera</span></code></pre>
+  <p>This pulls in CNA's heavier dependencies (SHARP_RUNTIME, SDL3, ffmpeg, a graphics backend), which is exactly why it is opt-in and off by default.</p>
+
+  <h2>Your first program</h2>
+  <p>Everything public is reachable through one umbrella header:</p>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/Easy3D.hpp&gt;</span></code></pre>
+  <p>Or include individual headers (<code>&lt;Easy3D/Camera3D.hpp&gt;</code>, <code>&lt;Easy3D/TextureAtlas.hpp&gt;</code>, …) if you prefer. A tiny CNA-free program — this needs nothing but the <code>easy3d</code> library from the default build:</p>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/TextureAtlas.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;Easy3D/Version.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;iostream&gt;</span>
+
+<span class="kw">int</span> <span class="fn">main</span>()
+{
+    std::cout &lt;&lt; <span class="st">"Easy3D "</span> &lt;&lt; <span class="ty">Easy3D</span>::<span class="fn">VersionString</span>() &lt;&lt; <span class="st">"\n"</span>;
+
+    <span class="cm">// Describe a 256x256 atlas texture with one named region.</span>
+    <span class="ty">Easy3D</span>::<span class="ty">TextureAtlas</span> atlas(<span class="nm">256</span>, <span class="nm">256</span>);
+    atlas.<span class="fn">Add</span>(<span class="st">"blupi_idle_0"</span>, <span class="ty">Easy3D</span>::<span class="ty">AtlasRect</span>{<span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">32</span>, <span class="nm">48</span>});
+
+    <span class="kw">const</span> <span class="ty">Easy3D</span>::<span class="ty">UvRect</span> uv = atlas.<span class="fn">GetUv</span>(<span class="st">"blupi_idle_0"</span>);
+    std::cout &lt;&lt; <span class="st">"UV top-left: ("</span> &lt;&lt; uv.U0 &lt;&lt; <span class="st">", "</span> &lt;&lt; uv.V0 &lt;&lt; <span class="st">")\n"</span>;
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</code></pre>
+  <p>Wiring it up in CMake (standalone consumer):</p>
+<pre><code>add_subdirectory(path/to/easy-3d easy-3d)
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE easy3d::easy3d)</code></pre>
+  <p>As soon as your program constructs CNA math values at runtime (a <code>Camera3D</code>, a <code>Vector3</code>, …), you must also link CNA — read on in <a href="building.html">Building &amp; CMake</a> for the recommended game setup.</p>
+
+  <h2>Using Easy3D + CNA together in a game</h2>
+  <p>A game (e.g. Galaxy Eggbert) uses CNA directly <em>and</em> Easy3D for convenience. Pull both in as subdirectories — add CNA first, then Easy3D auto-detects and links it:</p>
+<pre><code>add_subdirectory(../cna       cna)        <span class="cm"># defines the CNA target (+ chosen backend)</span>
+add_subdirectory(../easy-3d   easy-3d)    <span class="cm"># detects CNA, links it automatically</span>
+
+add_executable(my_game src/main.cpp)
+target_link_libraries(my_game PRIVATE CNA easy3d)
+<span class="cm">#                                     ^^^         the game still uses CNA directly</span>
+<span class="cm">#                                         ^^^^^^  and Easy3D helpers beside it</span></code></pre>
+
+  <h2>Next steps</h2>
+  <ul>
+    <li><a href="building.html">Building &amp; CMake</a> — every option, the three CNA linkage modes, backend selection.</li>
+    <li><a href="examples.html">Minimal Example</a> — the bundled example program, explained line by line.</li>
+    <li><a href="camera3d.html">Camera3D</a> — start of the API reference.</li>
+  </ul>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

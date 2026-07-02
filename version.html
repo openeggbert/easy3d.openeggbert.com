@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Version — Easy3D Documentation</title>
+<meta name="description" content="Easy3D version API reference — compile-time macros and constants, VersionNumber(), and VersionString().">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html" class="active">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>Version <span class="badge cna-free">CNA-free</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Reference / Version</p>
+
+  <div class="hero">
+    <p><code>&lt;Easy3D/Version.hpp&gt;</code> provides compile-time and run-time version information for Easy3D. It is completely CNA-free — usable from any build configuration.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/Version.hpp&gt;</span></code></pre>
+
+  <h2>Preprocessor macros</h2>
+  <table>
+    <tr><th>Macro</th><th>Current value</th></tr>
+    <tr><td><code>EASY3D_VERSION_MAJOR</code></td><td><code>0</code></td></tr>
+    <tr><td><code>EASY3D_VERSION_MINOR</code></td><td><code>1</code></td></tr>
+    <tr><td><code>EASY3D_VERSION_PATCH</code></td><td><code>0</code></td></tr>
+  </table>
+
+  <h2>Constants and functions</h2>
+  <div class="method">
+    <div class="sig">inline constexpr int VersionMajor / VersionMinor / VersionPatch</div>
+    <div class="desc">The version components as <code>constexpr int</code> values, mirroring the macros.</div>
+  </div>
+  <div class="method">
+    <div class="sig">inline constexpr int VersionNumber() noexcept</div>
+    <div class="desc">A single comparable integer: <code>major * 10000 + minor * 100 + patch</code>. For 0.1.0 this is <code>100</code>. Usable in <code>static_assert</code> and <code>#if</code>-style feature gates.</div>
+  </div>
+  <div class="method">
+    <div class="sig">const char* VersionString() noexcept</div>
+    <div class="desc">Human-readable version string, e.g. <code>"0.1.0"</code>. Defined in <code>Version.cpp</code> — a run-time function, but it does not require linking CNA.</div>
+  </div>
+
+  <h2>Example</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/Version.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;iostream&gt;</span>
+
+<span class="kw">static_assert</span>(<span class="ty">Easy3D</span>::<span class="fn">VersionNumber</span>() &gt;= <span class="nm">100</span>, <span class="st">"Easy3D 0.1.0 or newer required"</span>);
+
+<span class="kw">int</span> <span class="fn">main</span>()
+{
+    std::cout &lt;&lt; <span class="st">"Easy3D "</span> &lt;&lt; <span class="ty">Easy3D</span>::<span class="fn">VersionString</span>() &lt;&lt; <span class="st">"\n"</span>;   <span class="cm">// Easy3D 0.1.0</span>
+}</code></pre>
+
+  <div class="note">The library's CMake project version (<code>project(easy3d VERSION 0.1.0)</code>) is kept in sync with these macros.</div>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>
