@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BillboardMeshRenderer — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::BillboardMeshRenderer API reference — the CNA renderer adapter that uploads BillboardMesh vertex/index data to GPU buffers and issues indexed draw calls.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html" class="active">BillboardMeshRenderer</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>BillboardMeshRenderer <span class="badge cna-link">requires CNA link</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / BillboardMeshRenderer</p>
+
+  <div class="hero">
+    <p><code>Easy3D::BillboardMeshRenderer</code> uploads a <a href="billboard-mesh.html"><code>BillboardMesh</code></a>'s vertex/index arrays to GPU buffers and issues indexed <code>TriangleList</code> draw calls — it mirrors <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a>'s role and shape exactly, field for field, method for method. The one real difference is lifecycle: see below.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/BillboardMeshRenderer.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span> { <span class="kw">class</span> <span class="ty">BillboardMeshRenderer</span>; }</code></pre>
+
+  <div class="note"><code>&lt;Easy3D/BillboardMeshRenderer.hpp&gt;</code> is <strong>not</strong> pulled in by the <code>&lt;Easy3D/Easy3D.hpp&gt;</code> umbrella header — include it directly, same as <a href="billboard-mesh.html"><code>BillboardMesh.hpp</code></a>.</div>
+
+  <h2>Constructor — uploads once</h2>
+  <div class="method">
+    <div class="sig">BillboardMeshRenderer(GraphicsDevice&amp; device,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const std::vector&lt;BillboardVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="desc">Uploads <code>vertices</code>/<code>indices</code> to new GPU buffers immediately. <code>indices.size()</code> must be a multiple of 3; otherwise throws <code>std::invalid_argument</code>.</div>
+  </div>
+  <p>Each <a href="billboard-mesh.html"><code>BillboardVertex</code></a><code>{Position, Uv}</code> converts 1:1 to CNA's <code>VertexPositionTexture{Position, TextureCoordinate}</code>, and the index buffer is 32-bit — identical mechanics to <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a>.</p>
+
+  <h2>Draw</h2>
+  <div class="method">
+    <div class="sig">void Draw(GraphicsDevice&amp; device, BasicEffect&amp; effect) const</div>
+    <div class="desc">Draws the uploaded mesh once per pass of <code>effect</code>'s current technique. <code>effect</code>'s World/View/Projection and, if texturing is wanted, TextureEnabled/Texture must already be set by the caller.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] int VertexCount() const noexcept<br>[[nodiscard]] int PrimitiveCount() const noexcept</div>
+    <div class="desc">The uploaded vertex count and triangle count.</div>
+  </div>
+
+  <h2>Lifecycle — rebuild whenever the camera moves</h2>
+  <p>This is the one place <code>BillboardMeshRenderer</code> differs from <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a>: a billboard's vertex positions are baked in <strong>camera-facing at build time</strong> (see <a href="billboard-mesh.html">BillboardMesh</a>). Since the camera typically moves every frame, that means a fresh <a href="billboard-mesh.html"><code>BuildBillboardMesh</code></a> call <em>and</em> a fresh <code>BillboardMeshRenderer</code> instance, every frame the camera changes — there is no camera-independent cache to reuse the way there is for cube terrain.</p>
+<pre><code><span class="cm">// Each frame:</span>
+<span class="kw">const</span> <span class="ty">Vector3</span> cameraRight = <span class="cm">/* derive from the current camera orientation */</span>;
+<span class="kw">const</span> <span class="ty">Vector3</span> cameraUp    = <span class="cm">/* ... */</span>;
+
+std::vector&lt;<span class="ty">Easy3D</span>::<span class="ty">BillboardVertex</span>&gt; vertices;
+std::vector&lt;std::uint32_t&gt;           indices;
+<span class="ty">Easy3D</span>::<span class="fn">BuildBillboardMesh</span>(sprites, cameraRight, cameraUp, vertices, indices);
+
+<span class="ty">Easy3D</span>::<span class="ty">BillboardMeshRenderer</span> spriteRenderer(graphicsDevice, vertices, indices);
+
+effect.World          = <span class="ty">Matrix</span>::Identity;   <span class="cm">// positions are already in world space</span>
+effect.View            = camera.<span class="fn">GetViewMatrix</span>();
+effect.Projection      = camera.<span class="fn">GetProjectionMatrix</span>();
+effect.TextureEnabled  = <span class="kw">true</span>;
+effect.Texture          = spriteSheetTexture;
+
+spriteRenderer.<span class="fn">Draw</span>(graphicsDevice, effect);</code></pre>
+  <div class="tip">Rebuilding the vertex/index vectors and the GPU buffers every frame sounds expensive, but it matches the scale Easy3D targets (a handful to a few dozen sprites per frame for Galaxy Eggbert's first versions). If a real consumer needs more, that is a concrete, decidable optimization to raise later — not something to speculatively build now.</div>
+
+  <h2>Verification</h2>
+  <p>Same constraint as <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a>: the constructor needs a live <code>GraphicsDevice&amp;</code>, which a plain test <code>main()</code> cannot produce. Easy3D's test suite only compile-checks this class (see <a href="testing.html">Testing</a>); real runtime verification happens against a windowed CNA binary.</p>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

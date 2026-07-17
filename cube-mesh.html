@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CubeMesh — Easy3D Documentation</title>
-<meta name="description" content="Easy3D CubeMesh API reference — AppendCubeMesh/BuildCubeMesh turn queued CubeBatch items into plain CPU-side vertex/index arrays.">
+<meta name="description" content="Easy3D CubeMesh API reference — AppendCubeMesh/BuildCubeMesh plus DirectionalCube, Plate, TripleCross, and PyramidTip: CPU-side vertex/index builders for block terrain.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html" class="active">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -40,7 +43,7 @@
   <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / CubeMesh</p>
 
   <div class="hero">
-    <p>The <code>CubeMesh</code> functions turn queued <a href="cube-batch.html"><code>CubeBatch</code></a> items into plain CPU-side vertex/index arrays (Roadmap Phase&nbsp;3). <strong>No GPU work</strong>: no <code>GraphicsDevice</code>, no vertex/index <em>buffers</em>, no shaders — just <code>std::vector</code> data a caller can later upload.</p>
+    <p>The <code>CubeMesh</code> functions turn queued <a href="cube-batch.html"><code>CubeBatch</code></a> items — and a handful of related standalone shapes — into plain CPU-side vertex/index arrays. <strong>No GPU work</strong>: no <code>GraphicsDevice</code>, no vertex/index <em>buffers</em>, no shaders — just <code>std::vector</code> data a caller can later upload. This was Easy3D's first Roadmap Phase&nbsp;3 vertex builder, and <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> is the Phase&nbsp;4 adapter that actually draws its output.</p>
   </div>
 
 <pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeMesh.hpp&gt;</span>
@@ -49,43 +52,127 @@
 {
     <span class="kw">struct</span> <span class="ty">CubeVertex</span>;
 
-    <span class="kw">void</span> <span class="fn">AppendCubeMesh</span>(<span class="kw">const</span> <span class="ty">CubeItem</span>&amp; item,
-                        std::vector&lt;<span class="ty">CubeVertex</span>&gt;&amp; vertices,
-                        std::vector&lt;std::uint32_t&gt;&amp; indices);
+    <span class="kw">void</span> <span class="fn">AppendCubeMesh</span>(<span class="kw">const</span> <span class="ty">CubeItem</span>&amp; item, vertices, indices);
+    <span class="kw">void</span> <span class="fn">BuildCubeMesh</span>(<span class="kw">const</span> <span class="ty">CubeBatch</span>&amp; batch, vertices, indices);
 
-    <span class="kw">void</span> <span class="fn">BuildCubeMesh</span>(<span class="kw">const</span> <span class="ty">CubeBatch</span>&amp; batch,
-                       std::vector&lt;<span class="ty">CubeVertex</span>&gt;&amp; vertices,
-                       std::vector&lt;std::uint32_t&gt;&amp; indices);
+    <span class="kw">enum class</span> <span class="ty">CubeFace</span> : <span class="kw">int</span> { PosZ, NegZ, PosX, NegX, PosY, NegY };
+    <span class="kw">struct</span> <span class="ty">DirectionalCubeFace</span>;
+    <span class="kw">struct</span> <span class="ty">DirectionalCubeItem</span>;
+    <span class="kw">void</span> <span class="fn">AppendDirectionalCubeMesh</span>(<span class="kw">const</span> <span class="ty">DirectionalCubeItem</span>&amp; item, vertices, indices);
+
+    <span class="kw">enum class</span> <span class="ty">PlateAxis</span> { Z, X, Y };
+    <span class="kw">struct</span> <span class="ty">PlateItem</span>;
+    <span class="kw">void</span> <span class="fn">AppendPlateMesh</span>(<span class="kw">const</span> <span class="ty">PlateItem</span>&amp; item, vertices, indices);
+
+    <span class="kw">struct</span> <span class="ty">TripleCrossItem</span>;
+    <span class="kw">void</span> <span class="fn">AppendTripleCrossMesh</span>(<span class="kw">const</span> <span class="ty">TripleCrossItem</span>&amp; item, vertices, indices);
+
+    <span class="kw">struct</span> <span class="ty">PyramidTipItem</span>;
+    <span class="kw">void</span> <span class="fn">AppendPyramidTipMesh</span>(<span class="kw">const</span> <span class="ty">PyramidTipItem</span>&amp; item, vertices, indices);
 }</code></pre>
+  <p style="color: var(--text2); font-size: 0.85rem; margin-top: -0.6rem;">(Signatures abbreviated above — every <code>Append*</code>/<code>Build*</code> function takes <code>std::vector&lt;CubeVertex&gt;&amp; vertices, std::vector&lt;std::uint32_t&gt;&amp; indices</code> as its trailing two parameters, exactly like <code>AppendCubeMesh</code>.)</p>
+
+  <div class="warn">All six shapes on this page share one non-obvious, thoroughly-relearned rule: front faces are wound <strong>clockwise as seen from outside</strong>, not the OpenGL-textbook counter-clockwise. See "Winding: the XNA convention, not the OpenGL one" below before hand-building any geometry of your own alongside these.</div>
 
   <h2>CubeVertex</h2>
-  <p>One mesh vertex:</p>
+  <p>One mesh vertex — shared by every shape on this page:</p>
   <table>
     <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
     <tr><td><code>Position</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td><td>World position.</td></tr>
     <tr><td><code>Uv</code></td><td><code>Microsoft::Xna::Framework::Vector2</code></td><td>Normalized texture coordinate.</td></tr>
   </table>
 
-  <h2>AppendCubeMesh</h2>
+  <h2>Winding: the XNA convention, not the OpenGL one</h2>
+  <p>Every shape below is wound so its first triangle's <code>cross(v1-v0, v2-v0)</code> points <strong>into</strong> the solid, not out of it — the opposite of the OpenGL-textbook "counter-clockwise from outside" rule. This matches CNA's real, verified culling behavior: under the default <code>RasterizerState::CullCounterClockwise</code>, the triangles that survive are the ones that appear visually <strong>clockwise</strong> on screen — the same convention FNA's <code>SpriteBatch</code> quads and XNA's canonical tutorial triangle use.</p>
+  <div class="note">This was root-caused the hard way (2026-07-10): an earlier version of this file used the OpenGL CCW-from-outside convention, so every face was invisible from outside, and scenes only "looked right" by showing the mirrored interiors of a cube's <em>opposite</em> faces — a bug that stayed hidden until a level had a face with no opposite neighbor (pillar fronts, staircases). If you ever "clean up" this winding back to the textbook CCW convention, you will reintroduce that exact bug. Standard back-face culling still works correctly either way — it's just mirrored from the OpenGL-textbook expectation.</div>
+
+  <h2>AppendCubeMesh / BuildCubeMesh — the basic block</h2>
   <div class="method">
-    <div class="sig">void AppendCubeMesh(const CubeItem&amp; item,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;CubeVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="sig">void AppendCubeMesh(const CubeItem&amp; item, vertices, indices)</div>
     <div class="desc">Appends one cube's triangle mesh — <strong>24 vertices, 36 indices</strong> (6 faces × 4 vertices, so each face can carry its own UV corners) — to existing output arrays. Indices are offset by the vertex count already present in <code>vertices</code>, so results from repeated calls concatenate correctly into one combined mesh.</div>
+  </div>
+  <div class="method">
+    <div class="sig">void BuildCubeMesh(const CubeBatch&amp; batch, vertices, indices)</div>
+    <div class="desc">Builds a combined triangle mesh for every item in <code>batch</code>, in <code>CubeBatch::Items()</code> order. Equivalent to calling <code>AppendCubeMesh</code> for each item in turn against the same output arrays.</div>
   </div>
   <p>Properties of the generated geometry:</p>
   <ul>
     <li><strong>Per-cube counts:</strong> 24 vertices and 36 indices (12 triangles). Vertices are not shared between faces so each face keeps its own UV corners.</li>
-    <li><strong>Face order:</strong> +Z, −Z, +X, −X, +Y, −Y.</li>
-    <li><strong>Winding:</strong> faces are wound counter-clockwise as seen from outside the cube, matching CNA/XNA's right-handed coordinate system (outward face normal = <code>(v1−v0) × (v2−v0)</code>). Standard back-face culling works out of the box.</li>
-    <li><strong>UVs:</strong> every face uses the item's single <code>Uv</code> region on all four of its corners, laid out as <code>(U0,V0)-(U1,V0)-(U1,V1)-(U0,V1)</code> — <code>CubeItem</code> stores one atlas region per cube, not one per face.</li>
+    <li><strong>Face order:</strong> +Z, −Z, +X, −X, +Y, −Y — the same order <code>CubeFace</code> below enumerates.</li>
+    <li><strong>UVs:</strong> every face uses the item's single <code>Uv</code> region on all four of its corners, laid out as <code>(U0,V0)-(U1,V0)-(U1,V1)-(U0,V1)</code> — <code>CubeItem</code> stores one atlas region per cube, not one per face. For per-face UVs or partial faces, see <code>DirectionalCubeItem</code> below.</li>
     <li><strong>Index type:</strong> <code>std::uint32_t</code>, so large combined meshes (&gt; 65k vertices) are fine.</li>
   </ul>
+  <p>All functions on this page <em>append</em> — they never clear the output vectors. Clear them yourself when rebuilding from scratch, or exploit the appending to accumulate several shapes into one mesh (e.g. a cube plus a <code>PyramidTipItem</code> hanging beneath it).</p>
 
-  <h2>BuildCubeMesh</h2>
-  <div class="method">
-    <div class="sig">void BuildCubeMesh(const CubeBatch&amp; batch,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;CubeVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
-    <div class="desc">Builds a combined triangle mesh for every item in <code>batch</code>, in <code>CubeBatch::Items()</code> order. Equivalent to calling <code>AppendCubeMesh</code> for each item in turn against the same <code>vertices</code> / <code>indices</code>.</div>
-  </div>
-  <p>Both functions <em>append</em> — they never clear the output vectors. Clear them yourself when rebuilding from scratch, or exploit the appending to accumulate several batches into one mesh.</p>
+  <h2>DirectionalCube — per-face textures and holes</h2>
+  <p>Identified by the mobile-eggbert-reference tile-identification work as the <strong>"DirectionalCube"</strong> render mode: a cube where each of the 6 faces independently chooses its own UV region and whether it is emitted <em>at all</em>. A <code>Visible == false</code> face is a genuine geometric hole (e.g. an open grate you can see and shoot through) — not just an untextured face.</p>
+<pre><code><span class="kw">enum class</span> <span class="ty">CubeFace</span> : <span class="kw">int</span> { PosZ = <span class="nm">0</span>, NegZ = <span class="nm">1</span>, PosX = <span class="nm">2</span>, NegX = <span class="nm">3</span>, PosY = <span class="nm">4</span>, NegY = <span class="nm">5</span> };
+
+<span class="kw">struct</span> <span class="ty">DirectionalCubeFace</span>
+{
+    <span class="kw">bool</span> Visible = <span class="kw">true</span>;
+    <span class="ty">UvRect</span> Uv{<span class="nm">0.0f</span>, <span class="nm">0.0f</span>, <span class="nm">1.0f</span>, <span class="nm">1.0f</span>};
+};
+
+<span class="kw">struct</span> <span class="ty">DirectionalCubeItem</span>
+{
+    <span class="ty">Vector3</span> Center;
+    <span class="ty">Vector3</span> Size;
+    <span class="ty">DirectionalCubeFace</span> Faces[<span class="nm">6</span>];   <span class="cm">// indexed by CubeFace</span>
+};
+
+<span class="kw">void</span> <span class="fn">AppendDirectionalCubeMesh</span>(<span class="kw">const</span> <span class="ty">DirectionalCubeItem</span>&amp; item, vertices, indices);</code></pre>
+  <p><code>AppendDirectionalCubeMesh</code> appends only the item's <em>visible</em> faces, using <code>CubeFace</code> indexing into <code>Faces[6]</code> — faces with <code>Visible == false</code> contribute no vertices or indices at all, so a fully-invisible item produces an empty mesh and a 4-side, 2-top/bottom-open item produces exactly 16 vertices / 24 indices (4 faces, not 6). Each face's own <code>Uv</code> is independent, unlike <code>CubeItem</code>'s single shared region.</p>
+  <div class="tip">There is deliberately no "flat fallback color" concept — a caller wanting a plain-color face (e.g. matching an icon's own background) should pick a suitable <code>Uv</code> sub-rect of the existing atlas texture (a corner swatch) rather than Easy3D growing a second, color-only vertex/shader path.</div>
+
+  <h2>Plate — a flat double-sided panel</h2>
+  <p>Identified as the <strong>"InnerFlatPlate"</strong> render mode: a single flat, genuinely double-sided plate centered inside an otherwise fully transparent block — a signpost, a thin post, a screen. The block's outer 6 faces are simply never drawn by the caller; this only builds the plate itself. The horizontal axis (<code>PlateAxis::Y</code>) is also used standalone for surface-only effects, like a grass top sitting above an otherwise ordinary block.</p>
+<pre><code><span class="kw">enum class</span> <span class="ty">PlateAxis</span> { Z, X, Y };
+
+<span class="kw">struct</span> <span class="ty">PlateItem</span>
+{
+    <span class="ty">Vector3</span> Center;
+    <span class="kw">float</span> Width  = <span class="nm">1.0f</span>;   <span class="cm">// X for Z/Y axis, Z for X axis</span>
+    <span class="kw">float</span> Height = <span class="nm">1.0f</span>;   <span class="cm">// Y for Z/X axis, Z for Y axis</span>
+    <span class="ty">UvRect</span> Uv{<span class="nm">0.0f</span>, <span class="nm">0.0f</span>, <span class="nm">1.0f</span>, <span class="nm">1.0f</span>};
+    <span class="ty">PlateAxis</span> Axis = <span class="ty">PlateAxis</span>::Z;
+};
+
+<span class="kw">void</span> <span class="fn">AppendPlateMesh</span>(<span class="kw">const</span> <span class="ty">PlateItem</span>&amp; item, vertices, indices);</code></pre>
+  <table>
+    <tr><th><code>Axis</code></th><th>Plane</th><th>Reading</th></tr>
+    <tr><td><code>Z</code></td><td>spans X (<code>Width</code>) × Y (<code>Height</code>), facing ±Z</td><td>a "north-south wall"</td></tr>
+    <tr><td><code>X</code></td><td>spans Z (<code>Width</code>) × Y (<code>Height</code>), facing ±X</td><td>an "east-west wall"</td></tr>
+    <tr><td><code>Y</code></td><td>spans X (<code>Width</code>) × Z (<code>Height</code>), facing ±Y</td><td>a horizontal "floor/ceiling/tabletop"</td></tr>
+  </table>
+  <p><code>AppendPlateMesh</code> emits <strong>8 vertices, 12 indices</strong>: two coincident quads with opposite winding, genuinely visible from both sides regardless of the renderer's cull state — unlike a single quad, which under standard culling only shows from one side.</p>
+
+  <h2>TripleCross — a 3-plane cross billboard</h2>
+  <p>Identified as the <strong>"TripleCrossBillboard"</strong> render mode: the same texture drawn on 3 vertical, double-sided planes through the block's center, each 60° apart around Y — a 3-plane generalization of the classic 2-plane "cross" billboard used for plants and foliage. Rotationally symmetric by construction, so unlike <code>PlateItem</code>/<code>DirectionalCubeItem</code> there is no per-icon facing decision to make.</p>
+<pre><code><span class="kw">struct</span> <span class="ty">TripleCrossItem</span>
+{
+    <span class="ty">Vector3</span> Center;
+    <span class="kw">float</span> Width  = <span class="nm">1.0f</span>;
+    <span class="kw">float</span> Height = <span class="nm">1.0f</span>;
+    <span class="ty">UvRect</span> Uv{<span class="nm">0.0f</span>, <span class="nm">0.0f</span>, <span class="nm">1.0f</span>, <span class="nm">1.0f</span>};
+};
+
+<span class="kw">void</span> <span class="fn">AppendTripleCrossMesh</span>(<span class="kw">const</span> <span class="ty">TripleCrossItem</span>&amp; item, vertices, indices);</code></pre>
+  <p><code>AppendTripleCrossMesh</code> emits <strong>24 vertices, 36 indices</strong> — 3 <code>PlateItem</code>-style double-sided planes (8 vertices/12 indices each), the first lying in the <code>Z=Center.Z</code> plane exactly like a <code>PlateAxis::Z</code> plate, the other two rotated 60° and 120° around the Y axis through <code>Center</code>.</p>
+
+  <h2>PyramidTip — a hanging spike</h2>
+  <p>An inverted square pyramid: a flat square face at <code>Center</code>'s Y (typically flush with a block's own bottom face), tapering down to a single point <code>Height</code> below it — a "hanging spike / stalactite" attachment, e.g. the cone tip beneath a teleporter pillar. This is not one of the confirmed terrain render modes from the tile-identification work — it's a small, distinct "extra geometry" attachment a caller layers on top of an existing cube/<code>DirectionalCube</code> render, not a replacement for one.</p>
+<pre><code><span class="kw">struct</span> <span class="ty">PyramidTipItem</span>
+{
+    <span class="ty">Vector3</span> Center;      <span class="cm">// center of the square top face</span>
+    <span class="kw">float</span> BaseSize = <span class="nm">1.0f</span>;  <span class="cm">// width/depth of the square top</span>
+    <span class="kw">float</span> Height   = <span class="nm">0.5f</span>;  <span class="cm">// vertical drop from the top face to the apex</span>
+    <span class="ty">UvRect</span> Uv{<span class="nm">0.0f</span>, <span class="nm">0.0f</span>, <span class="nm">1.0f</span>, <span class="nm">1.0f</span>};  <span class="cm">// shared by the top square and all 4 side triangles</span>
+};
+
+<span class="kw">void</span> <span class="fn">AppendPyramidTipMesh</span>(<span class="kw">const</span> <span class="ty">PyramidTipItem</span>&amp; item, vertices, indices);</code></pre>
+  <p><code>AppendPyramidTipMesh</code> emits <strong>16 vertices, 18 indices</strong>: 1 square top face (visible from below, matching a cube's own −Y face winding — 4 fresh vertices) + 4 triangular side faces tapering to one shared apex point (3 fresh vertices each; none shared with each other or the square, since each face needs its own UVs). Each triangular face maps <code>Uv</code> with its two base corners at <code>(U0,V0)</code>/<code>(U1,V0)</code> and the apex at the horizontally-centered <code>((U0+U1)/2, V1)</code> — a tapering-to-a-point mapping matching the tapering geometry.</p>
+  <div class="note">An earlier version of this shape used a non-tapering box with alpha-cutout triangle faces instead of a true pyramid. It was replaced (2026-07-11) because the box's 4 flat side faces don't share a common vertex the way a real pyramid's 4 triangular faces do — adjacent faces' triangle graphics visibly failed to connect at the block's 4 vertical edges in a live screenshot. A genuine pyramid's faces meet at one shared apex by construction, so this version is structurally seamless.</div>
 
   <h2>Example — level terrain to one mesh</h2>
 <pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeBatch.hpp&gt;</span>
@@ -103,11 +190,22 @@ std::vector&lt;std::uint32_t&gt;      indices;
 <span class="cm">// vertices.size() == terrain.Count() * 24</span>
 <span class="cm">// indices.size()  == terrain.Count() * 36</span>
 
-<span class="cm">// The game now owns plain geometry data. Upload it with CNA (vertex/index</span>
-<span class="cm">// buffers + BasicEffect) and draw — Easy3D Phase 4 will add adapters for this.</span></code></pre>
+<span class="cm">// A grate tile (open top/bottom): append it into the same combined mesh.</span>
+<span class="ty">Easy3D</span>::<span class="ty">DirectionalCubeItem</span> grate;
+grate.Center = <span class="ty">Vector3</span>(<span class="nm">3.5f</span>, <span class="nm">0.5f</span>, <span class="nm">2.5f</span>);
+grate.Size   = <span class="ty">Vector3</span>(<span class="nm">1.0f</span>, <span class="nm">1.0f</span>, <span class="nm">1.0f</span>);
+<span class="kw">for</span> (<span class="kw">int</span> f = <span class="nm">0</span>; f &lt; <span class="nm">6</span>; ++f) {
+    <span class="kw">const bool</span> topOrBottom = f == <span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(<span class="ty">Easy3D</span>::<span class="ty">CubeFace</span>::PosY)
+                          || f == <span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(<span class="ty">Easy3D</span>::<span class="ty">CubeFace</span>::NegY);
+    grate.Faces[f].Visible = !topOrBottom;
+    grate.Faces[f].Uv      = tiles.<span class="fn">GetUv</span>(<span class="st">"grate_side"</span>);
+}
+<span class="ty">Easy3D</span>::<span class="fn">AppendDirectionalCubeMesh</span>(grate, vertices, indices);
+
+<span class="cm">// The game now owns plain geometry data. Upload it with CubeMeshRenderer and draw.</span></code></pre>
 
   <h2>Scope and status</h2>
-  <p><code>CubeMesh</code> is the first Phase&nbsp;3 vertex builder. Builders for <a href="billboard-batch.html">billboards</a> and <a href="debug-draw.html">debug lines/boxes</a> are planned next; issuing actual CNA draw calls is Phase&nbsp;4. See the <a href="roadmap.html">Roadmap</a>.</p>
+  <p><code>CubeMesh</code> was Easy3D's first Phase&nbsp;3 vertex builder; <a href="billboard-mesh.html"><code>BillboardMesh</code></a> followed it. A debug line/box vertex builder is the one remaining Phase&nbsp;3 gap. For issuing real CNA draw calls from this data, see <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> (Phase&nbsp;4, done). See the <a href="roadmap.html">Roadmap</a>.</p>
   <div class="note">There is no visibility optimization (no hidden-face removal between adjacent cubes, no meshing/greedy merge). For the small levels Easy3D targets this is fine; anything smarter would be scope creep until a real consumer needs it.</div>
 
   <footer>

@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -51,6 +54,8 @@
   </ul>
   <p>Building full CNA pulls in heavy dependencies (SHARP_RUNTIME, SDL3, ffmpeg, a graphics backend), so Easy3D keeps its default build free of them and resolves CNA linkage in one of three ways.</p>
 
+  <div class="note">Some deeper CNA headers — <code>Graphics/GraphicsDevice.hpp</code>, <code>Graphics/BasicEffect.hpp</code> (via <code>Color.hpp</code>), which <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer.hpp</code></a> and <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer.hpp</code></a> pull in — include <code>&lt;SharpRuntime/SharpRuntimeHelper.hpp&gt;</code> directly, even just to declare types. When CNA is actually built (modes 1/2 below), CNA's own CMakeLists already exposes sharp-runtime's include dir transitively. In the headers-only default build (mode 3), nothing builds sharp-runtime, so Easy3D adds its headers explicitly via <code>EASY3D_SHARP_RUNTIME_DIR</code> (default <code>../sharp-runtime</code>) — the same way it adds <code>EASY3D_CNA_DIR</code>.</div>
+
   <h2>The three CNA linkage modes</h2>
 
   <h3>1. Parent project provides the <code>CNA</code> target (the game path)</h3>
@@ -66,7 +71,7 @@ target_link_libraries(galaxy_eggbert PRIVATE CNA easy3d)</code></pre>
   <p>When building Easy3D by itself but wanting cameras to actually run (example + full test suite), Easy3D builds CNA itself from <code>EASY3D_CNA_DIR</code> (default <code>../cna</code>), selecting a graphics backend via <code>EASY3D_CNA_BACKEND</code> (default <code>EASY_GL</code>) and disabling CNA's own demos/tests:</p>
 <pre><code>cmake -S . -B build -DEASY3D_LINK_CNA=ON          <span class="cm"># backend defaults to EASY_GL</span>
 cmake --build build
-ctest --test-dir build                            <span class="cm"># runs all tests incl. camera, batches, cube_mesh</span></code></pre>
+ctest --test-dir build                            <span class="cm"># runs all runnable tests incl. camera, batches, cube_mesh, billboard_mesh</span></code></pre>
   <p>If there is no CNA CMake project at <code>EASY3D_CNA_DIR</code>, configuration fails with a clear error; fix it with <code>-DEASY3D_CNA_DIR=/path/to/cna</code>.</p>
 
   <h3>3. Default: headers only</h3>
@@ -75,7 +80,7 @@ ctest --test-dir build                            <span class="cm"># runs all te
 cmake --build build
 ctest --test-dir build      <span class="cm"># basics + texture_atlas</span></code></pre>
 
-  <div class="note">When CNA is linked (mode 1 or 2), Easy3D defines <code>EASY3D_HAS_CNA_LINK</code> as a <code>PUBLIC</code> compile definition, and the camera <strong>example</strong> and the camera/batch/cube-mesh <strong>tests</strong> are built as runnable executables. Your own code can <code>#ifdef EASY3D_HAS_CNA_LINK</code> if it needs to know.</div>
+  <div class="note">When CNA is linked (mode 1 or 2), Easy3D defines <code>EASY3D_HAS_CNA_LINK</code> as a <code>PUBLIC</code> compile definition, and the camera <strong>example</strong> and the camera/batch/cube-mesh/billboard-mesh <strong>tests</strong> are built as runnable executables. Your own code can <code>#ifdef EASY3D_HAS_CNA_LINK</code> if it needs to know.</div>
 
   <h2>CMake options</h2>
   <table>
@@ -85,6 +90,7 @@ ctest --test-dir build      <span class="cm"># basics + texture_atlas</span></co
     <tr><td><code>EASY3D_LINK_CNA</code></td><td><code>OFF</code></td><td>Standalone only: build CNA from <code>EASY3D_CNA_DIR</code> and link it. Ignored (unnecessary) when a parent project already provides the <code>CNA</code> target.</td></tr>
     <tr><td><code>EASY3D_CNA_DIR</code></td><td><code>../cna</code></td><td>Path to the CNA repository (provides headers under <code>&lt;dir&gt;/include</code>).</td></tr>
     <tr><td><code>EASY3D_CNA_BACKEND</code></td><td><code>EASY_GL</code></td><td>CNA graphics backend to enable when Easy3D builds CNA itself: <code>SDL_RENDERER</code> / <code>EASY_GL</code> / <code>BGFX</code> / <code>VULKAN</code>.</td></tr>
+    <tr><td><code>EASY3D_SHARP_RUNTIME_DIR</code></td><td><code>../sharp-runtime</code></td><td>Path to the sharp-runtime repository (provides headers under <code>&lt;dir&gt;/include</code>), needed for headers-only builds of anything touching <code>GraphicsDevice</code>/<code>BasicEffect</code> (the two renderer adapters).</td></tr>
   </table>
 
   <h3>Backend selection notes</h3>
@@ -107,7 +113,9 @@ ctest --test-dir build      <span class="cm"># basics + texture_atlas</span></co
     <tr><td><a href="orbit-camera.html"><code>OrbitCamera::ComputePosition()</code> / <code>ApplyTo()</code></a></td><td><strong>Yes</strong> — constructs CNA <code>Vector3</code> values.</td></tr>
     <tr><td><a href="follow-camera.html"><code>FollowCamera::Update()</code> / <code>ApplyTo()</code></a></td><td><strong>Yes</strong> — uses CNA <code>Vector3</code> math (<code>Vector3::Lerp</code>).</td></tr>
     <tr><td><a href="billboard-batch.html"><code>BillboardBatch</code></a> / <a href="cube-batch.html"><code>CubeBatch</code></a> / <a href="debug-draw.html"><code>DebugDraw</code></a></td><td>The classes only store data, but constructing the <code>Vector3</code>/<code>Vector2</code> values you pass in runs CNA constructors — so in practice, <strong>yes</strong>.</td></tr>
-    <tr><td><a href="cube-mesh.html"><code>AppendCubeMesh()</code> / <code>BuildCubeMesh()</code></a></td><td><strong>Yes</strong> — performs <code>Vector3</code> arithmetic.</td></tr>
+    <tr><td><a href="cube-mesh.html"><code>AppendCubeMesh()</code> / <code>BuildCubeMesh()</code></a> and the <code>DirectionalCube</code>/<code>Plate</code>/<code>TripleCross</code>/<code>PyramidTip</code> builders</td><td><strong>Yes</strong> — performs <code>Vector3</code> arithmetic.</td></tr>
+    <tr><td><a href="billboard-mesh.html"><code>AppendBillboardMesh()</code> / <code>BuildBillboardMesh()</code></a></td><td><strong>Yes</strong> — performs <code>Vector3</code>/<code>Vector2</code> arithmetic.</td></tr>
+    <tr><td><a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> / <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer</code></a></td><td><strong>Yes</strong> — issues real <code>GraphicsDevice::DrawIndexedPrimitives</code> calls. Also needs a live <code>GraphicsDevice</code>, not just linkage.</td></tr>
   </table>
 
   <div class="tip">If you hit linker errors like <em>undefined reference to <code>Microsoft::Xna::Framework::Vector3::Vector3(float, float, float)</code></em>, you are running CNA math without linking CNA. Either link the <code>CNA</code> target in your application, or (standalone) configure with <code>-DEASY3D_LINK_CNA=ON</code>.</div>
@@ -117,7 +125,8 @@ ctest --test-dir build      <span class="cm"># basics + texture_atlas</span></co
     <tr><th>Target</th><th>Kind</th><th>When</th></tr>
     <tr><td><code>easy3d</code> (alias <code>easy3d::easy3d</code>)</td><td>Static library</td><td>Always.</td></tr>
     <tr><td><code>easy3d_test_basics</code>, <code>easy3d_test_texture_atlas</code></td><td>Test executables</td><td>With <code>EASY3D_BUILD_TESTS=ON</code> (always runnable — CNA-free).</td></tr>
-    <tr><td><code>easy3d_test_camera</code>, <code>easy3d_test_batches</code>, <code>easy3d_test_cube_mesh</code></td><td>Test executables</td><td>Only when CNA is linked; otherwise compile-checked as OBJECT libraries (see <a href="testing.html">Testing</a>).</td></tr>
+    <tr><td><code>easy3d_test_camera</code>, <code>easy3d_test_batches</code>, <code>easy3d_test_cube_mesh</code>, <code>easy3d_test_billboard_mesh</code></td><td>Test executables</td><td>Only when CNA is linked; otherwise compile-checked as OBJECT libraries (see <a href="testing.html">Testing</a>).</td></tr>
+    <tr><td><code>easy3d_test_cube_mesh_renderer_compilecheck</code>, <code>easy3d_test_billboard_mesh_renderer_compilecheck</code></td><td>OBJECT libraries</td><td>Always compile-checked only — never linked into a runnable executable, regardless of CNA linkage (needs a live <code>GraphicsDevice</code>; see <a href="testing.html">Testing</a>).</td></tr>
     <tr><td>Minimal example</td><td>Example executable</td><td>With <code>EASY3D_BUILD_EXAMPLES=ON</code> <em>and</em> CNA linked (see <a href="examples.html">Minimal Example</a>).</td></tr>
   </table>
 

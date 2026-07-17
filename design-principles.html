@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -96,6 +99,12 @@
 
   <h3>7. Blupi renders as a billboard</h3>
   <p>Galaxy Eggbert will initially render Blupi as a 2D billboard built from existing Mobile Eggbert sprite animations. <a href="billboard-batch.html"><code>BillboardBatch</code></a> + <a href="texture-atlas.html"><code>TextureAtlas</code></a> are the two Easy3D pieces this needs — no 3D model path required.</p>
+
+  <h3>8. Geometry is wound XNA-clockwise-from-outside, not OpenGL-CCW</h3>
+  <p>Every triangle <a href="cube-mesh.html"><code>CubeMesh</code></a>/<a href="billboard-mesh.html"><code>BillboardMesh</code></a> emit is wound so it appears visually <strong>clockwise</strong> from outside — matching CNA's real behavior under the default <code>RasterizerState::CullCounterClockwise</code>, not the OpenGL-textbook counter-clockwise convention a naive implementation reaches for. This was root-caused the hard way after an earlier version used the textbook convention and quietly rendered every face invisible from outside (masked until a face had no opposite neighbor to show through). It is now a locked-in, tested convention — see <a href="cube-mesh.html">CubeMesh</a> for the full reasoning and a regression test that pins all 6 cube face normals.</p>
+
+  <h3>9. Small "extra geometry" shapes belong in CubeMesh, not new subsystems</h3>
+  <p><code>DirectionalCubeItem</code>, <code>PlateItem</code>, <code>TripleCrossItem</code>, and <code>PyramidTipItem</code> were added directly to <a href="cube-mesh.html"><code>CubeMesh.hpp</code></a> as they were identified from Mobile Eggbert's tile catalogue, rather than as separate modules or a general "shape library." Each solves one concrete render mode a real tile needs (a grate, a signpost, foliage, a hanging spike) and stays a plain vertex-array function — no new item-queue class, no new renderer. This is Decision 4 (compiled library, small helpers) and Principle 4 (grow only when needed) applied to geometry specifically.</p>
 
   <h2>Relationship to earlier libraries</h2>
   <p>Easy3D is <strong>not</strong> Simple3D and must not grow back into Simple3D; it is not Nova-3D or a Urho3D-style abstraction either. Nez, libGDX, and Simple3D serve as conceptual inspiration only — their code is never copied. The recurring failure mode Easy3D guards against: a "helper library" accreting subsystems until it hides the runtime underneath. Every hard limit above exists because some predecessor crossed it.</p>

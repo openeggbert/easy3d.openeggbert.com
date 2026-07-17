@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html" class="active">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -40,7 +43,7 @@
   <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / CubeBatch</p>
 
   <div class="hero">
-    <p><code>Easy3D::CubeBatch</code> collects axis-aligned cubes / tiles for later drawing. The intended use is simple cube/tile terrain — e.g. a Blupi level rendered as blocks. <code>Add()</code> stores one <code>CubeItem</code> per call; <code>Items()</code> exposes them for a CPU-side vertex builder (<a href="cube-mesh.html"><code>BuildCubeMesh</code></a> already exists) or a future CNA draw path. <strong>This class does no GPU work itself.</strong></p>
+    <p><code>Easy3D::CubeBatch</code> collects axis-aligned cubes / tiles for later drawing. The intended use is simple cube/tile terrain — e.g. a Blupi level rendered as blocks. <code>Add()</code> stores one <code>CubeItem</code> per call; <code>Items()</code> exposes them to <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a>, the CPU-side vertex builder that consumes them. <strong>This class does no GPU work itself</strong> — see <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> for the adapter that actually draws them.</p>
   </div>
 
 <pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeBatch.hpp&gt;</span>
@@ -130,8 +133,8 @@ terrain.<span class="fn">Begin</span>();
 terrain.<span class="fn">End</span>();
 <span class="cm">// Turn the queued cubes into CPU-side geometry — see CubeMesh.</span></code></pre>
 
-  <h2>From queue to geometry</h2>
-  <p><code>CubeBatch</code> is the first stage of the data-first pipeline; <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a> is the second — it turns the queued items into plain vertex/index arrays you can upload and draw with CNA. See <a href="architecture.html">Architecture</a> for the pipeline picture.</p>
+  <h2>From queue to geometry to draw call</h2>
+  <p><code>CubeBatch</code> is the first stage of the data-first pipeline; <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a> is the second — it turns the queued items into plain vertex/index arrays. <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> is the third — it uploads that data to GPU buffers and issues the actual CNA draw call. See <a href="architecture.html">Architecture</a> for the pipeline picture.</p>
 
   <footer>
     <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>

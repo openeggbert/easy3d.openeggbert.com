@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BillboardMesh — Easy3D Documentation</title>
+<meta name="description" content="Easy3D BillboardMesh API reference — AppendBillboardMesh/BuildBillboardMesh turn queued BillboardBatch items into camera-facing CPU-side vertex/index arrays.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html" class="active">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>BillboardMesh <span class="badge cna-link">requires CNA link</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / BillboardMesh</p>
+
+  <div class="hero">
+    <p>The <code>BillboardMesh</code> functions turn queued <a href="billboard-batch.html"><code>BillboardBatch</code></a> items into plain CPU-side, camera-facing vertex/index arrays — mirroring <a href="cube-mesh.html"><code>CubeMesh</code></a>'s role for <code>CubeBatch</code>. <strong>No GPU work</strong>: no <code>GraphicsDevice</code>, no vertex/index <em>buffers</em>, no shaders — just <code>std::vector</code> data a caller can later upload.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/BillboardMesh.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span>
+{
+    <span class="kw">struct</span> <span class="ty">BillboardVertex</span>;
+
+    <span class="kw">void</span> <span class="fn">AppendBillboardMesh</span>(<span class="kw">const</span> <span class="ty">BillboardItem</span>&amp; item,
+                             <span class="kw">const</span> <span class="ty">Vector3</span>&amp; cameraRight,
+                             <span class="kw">const</span> <span class="ty">Vector3</span>&amp; cameraUp,
+                             std::vector&lt;<span class="ty">BillboardVertex</span>&gt;&amp; vertices,
+                             std::vector&lt;std::uint32_t&gt;&amp; indices);
+
+    <span class="kw">void</span> <span class="fn">BuildBillboardMesh</span>(<span class="kw">const</span> <span class="ty">BillboardBatch</span>&amp; batch,
+                            <span class="kw">const</span> <span class="ty">Vector3</span>&amp; cameraRight,
+                            <span class="kw">const</span> <span class="ty">Vector3</span>&amp; cameraUp,
+                            std::vector&lt;<span class="ty">BillboardVertex</span>&gt;&amp; vertices,
+                            std::vector&lt;std::uint32_t&gt;&amp; indices);
+}</code></pre>
+
+  <div class="note"><code>&lt;Easy3D/BillboardMesh.hpp&gt;</code> is <strong>not</strong> pulled in by the <code>&lt;Easy3D/Easy3D.hpp&gt;</code> umbrella header — include it directly. (<a href="cube-mesh.html"><code>CubeMesh.hpp</code></a> and <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer.hpp</code></a> <em>are</em> in the umbrella; <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer.hpp</code></a> is not, either.)</div>
+
+  <h2>Why billboards are different from cubes</h2>
+  <p>A cube's geometry is fixed once you know its center and size. A billboard's geometry is not: a camera-facing quad's actual corner positions depend on which way the camera is currently pointing. So unlike <a href="cube-mesh.html"><code>CubeMesh</code></a> (build once, cache forever, until the level changes), <strong>a <code>BillboardMesh</code> must be rebuilt whenever the camera moves</strong> — typically once per frame.</p>
+
+  <h2>BillboardVertex</h2>
+  <p>One mesh vertex — same shape as <a href="cube-mesh.html"><code>CubeVertex</code></a>:</p>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+    <tr><td><code>Position</code></td><td><code>Microsoft::Xna::Framework::Vector3</code></td><td>World position (already offset onto the camera's right/up plane).</td></tr>
+    <tr><td><code>Uv</code></td><td><code>Microsoft::Xna::Framework::Vector2</code></td><td>Normalized texture coordinate.</td></tr>
+  </table>
+
+  <h2>AppendBillboardMesh</h2>
+  <div class="method">
+    <div class="sig">void AppendBillboardMesh(const BillboardItem&amp; item,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const Vector3&amp; cameraRight, const Vector3&amp; cameraUp,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;BillboardVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="desc">Appends one billboard's quad — <strong>4 vertices, 6 indices</strong> — to existing output arrays, facing the camera basis described by <code>cameraRight</code>/<code>cameraUp</code> (both expected normalized — e.g. an inverse view matrix's Right/Up rows). Indices are offset by the vertex count already present in <code>vertices</code>, so repeated calls concatenate correctly into one combined mesh.</div>
+  </div>
+  <p>How placement works:</p>
+  <ul>
+    <li><code>item.Origin</code> (normalized, <code>{0,0}</code> = bottom-left, <code>{1,1}</code> = top-right, <code>{0.5,0.5}</code> = centered) places the quad relative to <code>item.Position</code>.</li>
+    <li><code>item.RotationRadians</code> rotates the quad within the camera's right/up plane <em>before</em> that placement.</li>
+    <li><code>item.Size</code> scales the unit quad along <code>cameraRight</code>/<code>cameraUp</code> independently (X → right, Y → up).</li>
+  </ul>
+  <p>Properties of the generated geometry:</p>
+  <ul>
+    <li><strong>Per-billboard counts:</strong> 4 vertices, 6 indices (2 triangles).</li>
+    <li><strong>Corner order:</strong> bottom-left, bottom-right, top-right, top-left, in the camera's right/up plane.</li>
+    <li><strong>UVs:</strong> world "up" (the top two corners) maps to <code>V0</code> (top of a top-down image) and world "down" maps to <code>V1</code> — the usual row-0-is-top spritesheet convention. <code>item.Uv</code>'s corners map <code>(U0,V1)-(U1,V1)-(U1,V0)-(U0,V0)</code> to bottom-left/bottom-right/top-right/top-left respectively.</li>
+    <li><strong>Winding:</strong> the two triangles are <code>(0,2,1)</code> and <code>(0,3,2)</code> — deliberately <em>not</em> the textbook <code>(0,1,2)</code>/<code>(0,2,3)</code> order. That naive order is back-facing under CNA/XNA's default <code>RasterizerState::CullCounterClockwise</code> for a billboard sitting in front of a camera looking toward it; this order renders correctly with no per-draw <code>CullNone</code> override. See <a href="design-principles.html">Design Principles</a> for the same convention on <a href="cube-mesh.html"><code>CubeMesh</code></a>.</li>
+    <li><strong>Index type:</strong> <code>std::uint32_t</code>, matching <a href="cube-mesh.html"><code>CubeMesh</code></a>.</li>
+  </ul>
+
+  <h2>BuildBillboardMesh</h2>
+  <div class="method">
+    <div class="sig">void BuildBillboardMesh(const BillboardBatch&amp; batch,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const Vector3&amp; cameraRight, const Vector3&amp; cameraUp,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;BillboardVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="desc">Builds a combined triangle mesh for every item in <code>batch</code>, in <code>BillboardBatch::Items()</code> order, all facing the <em>same</em> camera basis. Equivalent to calling <code>AppendBillboardMesh</code> for each item in turn against the same <code>vertices</code>/<code>indices</code>.</div>
+  </div>
+  <p>Both functions <em>append</em> — they never clear the output vectors. Rebuild from scratch each frame by clearing your vectors first (or reusing their capacity with <code>.clear()</code> rather than reallocating).</p>
+
+  <h2>Getting cameraRight / cameraUp</h2>
+  <p>The camera basis vectors are whatever right/up axes the current <a href="camera3d.html"><code>Camera3D</code></a> is looking along — derive them from its position/target/up the same way you would for any billboard technique (e.g. cross products of the view direction and the camera's up vector, or the appropriate rows of the inverted view matrix). Easy3D deliberately does not add a <code>Camera3D::GetRight()</code>/<code>GetUp()</code> convenience yet — no concrete consumer has asked for one; open a request if Galaxy Eggbert needs it.</p>
+
+  <h2>Example — billboards facing the camera, rebuilt per frame</h2>
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/BillboardBatch.hpp&gt;</span>
+<span class="op">#include</span> <span class="st">&lt;Easy3D/BillboardMesh.hpp&gt;</span>
+
+<span class="cm">// Per frame: derive the camera's right/up axes from its current orientation</span>
+<span class="cm">// (e.g. from the view direction cross world-up, then up = right cross forward).</span>
+<span class="kw">const</span> <span class="ty">Vector3</span> cameraRight = <span class="cm">/* ... */</span>;
+<span class="kw">const</span> <span class="ty">Vector3</span> cameraUp    = <span class="cm">/* ... */</span>;
+
+sprites.<span class="fn">Begin</span>();
+<span class="cm">// ... sprites.Add() one BillboardItem per visible sprite (see BillboardBatch) ...</span>
+sprites.<span class="fn">End</span>();
+
+std::vector&lt;<span class="ty">Easy3D</span>::<span class="ty">BillboardVertex</span>&gt; vertices;
+std::vector&lt;std::uint32_t&gt;           indices;
+<span class="ty">Easy3D</span>::<span class="fn">BuildBillboardMesh</span>(sprites, cameraRight, cameraUp, vertices, indices);
+
+<span class="cm">// Upload with CNA and draw — see BillboardMeshRenderer, which does exactly this.</span></code></pre>
+
+  <h2>Scope and status</h2>
+  <p><code>BillboardMesh</code> is the second Phase&nbsp;3 vertex builder (<a href="cube-mesh.html"><code>CubeMesh</code></a> was first). A debug line/box vertex builder is the one remaining Phase&nbsp;3 gap. See the <a href="roadmap.html">Roadmap</a>.</p>
+  <div class="note">For actually issuing CNA draw calls from this data, see <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer</code></a> — the Phase&nbsp;4 adapter that uploads this output to GPU buffers and draws it.</div>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

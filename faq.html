@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -39,8 +42,11 @@
   <h1>FAQ</h1>
   <p class="crumb"><a href="index.html">Easy3D</a> / Examples / FAQ</p>
 
-  <h2>Why doesn't Easy3D actually draw anything?</h2>
-  <p>By design, for now. Easy3D is built in deliberate phases: the batching classes (Phase&nbsp;2) store plain data, the vertex builders (Phase&nbsp;3, in progress) turn that data into CPU-side geometry, and only Phase&nbsp;4 will issue actual CNA draw calls. This keeps every step testable without a GPU and defers the concrete CNA draw-path decision (<code>BasicEffect</code>? <code>SpriteBatch</code>? raw buffers?) to the phase that actually needs it. Until then, <code>Items()</code>/<code>Lines()</code>/<code>Boxes()</code> and <a href="cube-mesh.html"><code>BuildCubeMesh()</code></a> give your game everything it needs to draw with CNA directly. See the <a href="roadmap.html">Roadmap</a>.</p>
+  <h2>Does Easy3D actually draw anything yet?</h2>
+  <p>Yes, for two of the three shapes. Easy3D was built in deliberate phases: the batching classes (Phase&nbsp;2) store plain data, vertex builders (Phase&nbsp;3) turn that data into CPU-side geometry, and renderer adapters (Phase&nbsp;4) issue actual CNA draw calls. <strong>Cubes and billboards have made it all the way through</strong>: <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> and <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer</code></a> upload real GPU buffers and call <code>GraphicsDevice::DrawIndexedPrimitives</code>, verified end-to-end against a real windowed Galaxy Eggbert binary. <strong>Debug lines/boxes have not</strong> — <a href="debug-draw.html"><code>DebugDraw</code></a> still only queues plain data, with no vertex builder or renderer adapter yet (no concrete consumer has needed one). The phased approach kept every step testable without a GPU and deferred the concrete CNA draw-path decision (<code>BasicEffect</code> + raw <code>VertexBuffer</code>/<code>IndexBuffer</code>, not <code>SpriteBatch</code>) to the phase that actually needed it. See the <a href="roadmap.html">Roadmap</a>.</p>
+
+  <h2>My cube/billboard faces are invisible (or I only see the inside of the level). What's wrong?</h2>
+  <p>Almost certainly a winding-convention mismatch, if you're building geometry by hand alongside Easy3D's. Every shape in <a href="cube-mesh.html"><code>CubeMesh</code></a> and <a href="billboard-mesh.html"><code>BillboardMesh</code></a> is wound so its first triangle's <code>cross(v1-v0, v2-v0)</code> points <em>into</em> the solid — the opposite of the OpenGL-textbook "counter-clockwise from outside" rule. This matches CNA's real culling behavior: under the default <code>RasterizerState::CullCounterClockwise</code>, the surviving triangles are the ones that look visually <strong>clockwise</strong> on screen. Easy3D got this wrong in an earlier version (faces were invisible from outside, and scenes only "looked right" by showing the mirrored interiors of opposite faces) — see <a href="cube-mesh.html">CubeMesh</a>'s winding section for the full story before you "fix" it back to the textbook convention.</p>
 
   <h2>Why are CNA types exposed in the API instead of wrapped?</h2>
   <p>Because Easy3D is a companion, not an abstraction layer. Hiding CNA behind Easy3D types would make Easy3D a middleman for everything — exactly the engine-shaped drift the project guards against. Easy3D functions take and return <code>Microsoft::Xna::Framework::Vector3</code>, <code>Matrix</code>, and friends directly, so the values plug straight into the CNA code your game already writes. The reasoning is spelled out in <a href="design-principles.html">Design Principles</a>.</p>
@@ -55,6 +61,9 @@
 
   <h2>Do I need to build all of CNA (SDL3, ffmpeg, …) just to use Easy3D?</h2>
   <p>No — that's the point of the default build. It compiles the <code>easy3d</code> library against CNA's <em>headers</em> only and runs the CNA-free tests. You only pay for the full CNA build when your executable actually runs CNA math (cameras, batch item construction), which for a real game is true anyway.</p>
+
+  <h2>I included &lt;Easy3D/Easy3D.hpp&gt; but BillboardMesh/BillboardMeshRenderer aren't found. Why?</h2>
+  <p>Those two headers are deliberately left out of the umbrella header — include <code>&lt;Easy3D/BillboardMesh.hpp&gt;</code> and <code>&lt;Easy3D/BillboardMeshRenderer.hpp&gt;</code> directly. Every other public header (including <a href="cube-mesh.html"><code>CubeMesh.hpp</code></a> and <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer.hpp</code></a>) is in the umbrella; see the header table on <a href="architecture.html">Architecture</a> for the full list.</p>
 
   <h2>Is TextureAtlas really usable without CNA?</h2>
   <p>Yes — completely. <a href="texture-atlas.html"><code>TextureAtlas</code></a> deliberately uses its own small PODs (<code>AtlasRect</code>, <code>UvRect</code>) and never touches CNA types. It builds, runs, and is unit-tested in the default headers-only build.</p>

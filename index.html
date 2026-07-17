@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -79,8 +82,11 @@
     <a href="follow-camera.html" class="card"><h3>FollowCamera</h3><p>Frame-rate-independent smoothed follow camera (target + offset + smoothing).</p></a>
     <a href="texture-atlas.html" class="card"><h3>TextureAtlas</h3><p>Named sub-rectangles of one texture, spritesheet grids, normalized UV lookup.</p></a>
     <a href="billboard-batch.html" class="card"><h3>BillboardBatch</h3><p>Queues camera-facing quads (sprites in 3D space) for later drawing.</p></a>
+    <a href="billboard-mesh.html" class="card"><h3>BillboardMesh</h3><p>Turns queued billboards into camera-facing CPU-side vertex/index arrays.</p></a>
+    <a href="billboard-mesh-renderer.html" class="card"><h3>BillboardMeshRenderer</h3><p>Uploads a BillboardMesh to GPU buffers and issues real CNA draw calls.</p></a>
     <a href="cube-batch.html" class="card"><h3>CubeBatch</h3><p>Queues axis-aligned cubes / tiles for later drawing (block terrain).</p></a>
-    <a href="cube-mesh.html" class="card"><h3>CubeMesh</h3><p>Turns queued cubes into CPU-side vertex/index arrays — no GPU work.</p></a>
+    <a href="cube-mesh.html" class="card"><h3>CubeMesh</h3><p>Cube, DirectionalCube, Plate, TripleCross, PyramidTip — CPU-side vertex builders.</p></a>
+    <a href="cube-mesh-renderer.html" class="card"><h3>CubeMeshRenderer</h3><p>Uploads a CubeMesh to GPU buffers and issues real CNA draw calls.</p></a>
     <a href="debug-draw.html" class="card"><h3>DebugDraw</h3><p>Queues debug lines and boxes for development overlays.</p></a>
     <a href="version.html" class="card"><h3>Version</h3><p>Compile-time and run-time version information.</p></a>
   </div>
@@ -116,8 +122,9 @@ billboards.<span class="fn">End</span>();</code></pre>
     <li>Cameras exist and work: <a href="camera3d.html"><code>Camera3D</code></a>, <a href="orbit-camera.html"><code>OrbitCamera</code></a>, <a href="follow-camera.html"><code>FollowCamera</code></a>.</li>
     <li><a href="texture-atlas.html"><code>TextureAtlas</code></a> supports named rects, grid spritesheet insertion (<code>AddGrid</code>), and a non-throwing lookup (<code>GetUvOrDefault</code>).</li>
     <li><a href="billboard-batch.html"><code>BillboardBatch</code></a>, <a href="cube-batch.html"><code>CubeBatch</code></a>, and <a href="debug-draw.html"><code>DebugDraw</code></a> store queued data (<code>BillboardItem</code> / <code>CubeItem</code> / <code>DebugLine</code> + <code>DebugBox</code>) for later use.</li>
-    <li><a href="cube-mesh.html"><code>CubeMesh</code></a> turns queued cubes into plain CPU-side vertex/index arrays (Roadmap Phase&nbsp;3).</li>
-    <li>Rendering (issuing actual CNA draw calls) is <strong>intentionally not implemented yet</strong> — see the <a href="roadmap.html">Roadmap</a>.</li>
+    <li><a href="cube-mesh.html"><code>CubeMesh</code></a> turns queued cubes into plain CPU-side vertex/index arrays, plus four related standalone shapes: <code>DirectionalCube</code> (per-face UV/holes), <code>Plate</code> (double-sided panel), <code>TripleCross</code> (3-plane foliage billboard), <code>PyramidTip</code> (hanging spike).</li>
+    <li><a href="billboard-mesh.html"><code>BillboardMesh</code></a> does the same for camera-facing quads.</li>
+    <li><strong>Rendering is real</strong> for cubes and billboards: <a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a> and <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer</code></a> upload GPU buffers and issue actual <code>GraphicsDevice::DrawIndexedPrimitives</code> calls, verified end-to-end against a real windowed Galaxy Eggbert binary. Debug line/box rendering is the one shape not implemented yet — see the <a href="roadmap.html">Roadmap</a>.</li>
   </ul>
 
   <div class="note">Easy3D grows only as far as Galaxy Eggbert actually needs it. If a feature is not needed soon, it is not built. This is a deliberate, documented policy — not an accident of youth.</div>

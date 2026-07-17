@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -102,18 +105,21 @@ game.<span class="fn">RunEverything</span>();   <span class="cm">// NO — this 
   └── easy-3d/        &lt;- the Easy3D repository</code></pre>
 
   <h2>Anatomy of the library</h2>
-  <p>The public API is nine headers under <code>include/Easy3D/</code>, plus the umbrella header <code>Easy3D.hpp</code> that includes them all:</p>
+  <p>The public API is thirteen headers under <code>include/Easy3D/</code>. Eleven of them are pulled in by the umbrella header <code>Easy3D.hpp</code>; <code>BillboardMesh.hpp</code> and <code>BillboardMeshRenderer.hpp</code> are deliberately <strong>not</strong> — include those two directly.</p>
   <table>
-    <tr><th>Header</th><th>Provides</th><th>CNA at runtime?</th></tr>
-    <tr><td><code>Easy3D/Version.hpp</code></td><td><a href="version.html">Version macros, constants, <code>VersionString()</code></a></td><td>No</td></tr>
-    <tr><td><code>Easy3D/Camera3D.hpp</code></td><td><a href="camera3d.html"><code>Camera3D</code></a></td><td>Yes (matrices)</td></tr>
-    <tr><td><code>Easy3D/OrbitCamera.hpp</code></td><td><a href="orbit-camera.html"><code>OrbitCamera</code></a></td><td>Yes</td></tr>
-    <tr><td><code>Easy3D/FollowCamera.hpp</code></td><td><a href="follow-camera.html"><code>FollowCamera</code></a></td><td>Yes</td></tr>
-    <tr><td><code>Easy3D/TextureAtlas.hpp</code></td><td><a href="texture-atlas.html"><code>TextureAtlas</code>, <code>AtlasRect</code>, <code>UvRect</code></a></td><td>No (CNA-free)</td></tr>
-    <tr><td><code>Easy3D/BillboardBatch.hpp</code></td><td><a href="billboard-batch.html"><code>BillboardBatch</code>, <code>BillboardItem</code></a></td><td>Stores CNA types</td></tr>
-    <tr><td><code>Easy3D/CubeBatch.hpp</code></td><td><a href="cube-batch.html"><code>CubeBatch</code>, <code>CubeItem</code></a></td><td>Stores CNA types</td></tr>
-    <tr><td><code>Easy3D/CubeMesh.hpp</code></td><td><a href="cube-mesh.html"><code>CubeVertex</code>, <code>AppendCubeMesh</code>, <code>BuildCubeMesh</code></a></td><td>Yes (Vector3 math)</td></tr>
-    <tr><td><code>Easy3D/DebugDraw.hpp</code></td><td><a href="debug-draw.html"><code>DebugDraw</code>, <code>DebugLine</code>, <code>DebugBox</code></a></td><td>Stores CNA types</td></tr>
+    <tr><th>Header</th><th>Provides</th><th>CNA at runtime?</th><th>In umbrella?</th></tr>
+    <tr><td><code>Easy3D/Version.hpp</code></td><td><a href="version.html">Version macros, constants, <code>VersionString()</code></a></td><td>No</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/Camera3D.hpp</code></td><td><a href="camera3d.html"><code>Camera3D</code></a></td><td>Yes (matrices)</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/OrbitCamera.hpp</code></td><td><a href="orbit-camera.html"><code>OrbitCamera</code></a></td><td>Yes</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/FollowCamera.hpp</code></td><td><a href="follow-camera.html"><code>FollowCamera</code></a></td><td>Yes</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/TextureAtlas.hpp</code></td><td><a href="texture-atlas.html"><code>TextureAtlas</code>, <code>AtlasRect</code>, <code>UvRect</code></a></td><td>No (CNA-free)</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/BillboardBatch.hpp</code></td><td><a href="billboard-batch.html"><code>BillboardBatch</code>, <code>BillboardItem</code></a></td><td>Stores CNA types</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/BillboardMesh.hpp</code></td><td><a href="billboard-mesh.html"><code>BillboardVertex</code>, <code>AppendBillboardMesh</code>, <code>BuildBillboardMesh</code></a></td><td>Yes (Vector3 math)</td><td><strong>No</strong></td></tr>
+    <tr><td><code>Easy3D/BillboardMeshRenderer.hpp</code></td><td><a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer</code></a></td><td>Yes (GPU draw)</td><td><strong>No</strong></td></tr>
+    <tr><td><code>Easy3D/CubeBatch.hpp</code></td><td><a href="cube-batch.html"><code>CubeBatch</code>, <code>CubeItem</code></a></td><td>Stores CNA types</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/CubeMesh.hpp</code></td><td><a href="cube-mesh.html"><code>CubeVertex</code>, <code>AppendCubeMesh</code>/<code>BuildCubeMesh</code>, <code>DirectionalCubeItem</code>, <code>PlateItem</code>, <code>TripleCrossItem</code>, <code>PyramidTipItem</code></a></td><td>Yes (Vector3 math)</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/CubeMeshRenderer.hpp</code></td><td><a href="cube-mesh-renderer.html"><code>CubeMeshRenderer</code></a></td><td>Yes (GPU draw)</td><td>Yes</td></tr>
+    <tr><td><code>Easy3D/DebugDraw.hpp</code></td><td><a href="debug-draw.html"><code>DebugDraw</code>, <code>DebugLine</code>, <code>DebugBox</code></a></td><td>Stores CNA types</td><td>Yes</td></tr>
   </table>
 
   <h2>The data-first pipeline</h2>
@@ -121,11 +127,11 @@ game.<span class="fn">RunEverything</span>();   <span class="cm">// NO — this 
   <div class="layer-diagram">
     <div class="layer">1. Queue data — <code>BillboardBatch</code> / <code>CubeBatch</code> / <code>DebugDraw</code> store plain items <em>(done)</em></div>
     <div class="arrow">↓</div>
-    <div class="layer hl">2. Build CPU-side geometry — e.g. <code>BuildCubeMesh()</code> → <code>std::vector</code> of vertices/indices <em>(in progress)</em></div>
+    <div class="layer">2. Build CPU-side geometry — <code>BuildCubeMesh()</code> / <code>BuildBillboardMesh()</code> → <code>std::vector</code> of vertices/indices <em>(done for cubes &amp; billboards; debug lines/boxes remain)</em></div>
     <div class="arrow">↓</div>
-    <div class="layer">3. CNA renderer adapters — upload buffers, issue CNA draw calls <em>(future, Phase 4)</em></div>
+    <div class="layer hl">3. CNA renderer adapters — <code>CubeMeshRenderer</code> / <code>BillboardMeshRenderer</code> upload buffers, issue real CNA draw calls <em>(done for cubes &amp; billboards; debug lines/boxes remain)</em></div>
   </div>
-  <p>This keeps every step testable without a GPU, and defers the concrete CNA draw-path decision to the phase that actually needs it.</p>
+  <p>This kept every step testable without a GPU until it actually needed one, and deferred the concrete CNA draw-path decision to the phase that actually needed it. Debug line/box drawing is the one shape that hasn't made it through this pipeline yet.</p>
 
   <h2>What Easy3D is deliberately NOT</h2>
   <p>No ECS, no generic engine object hierarchy, no Lua, no physics, no navigation, no networking, no editor, no asset database, no resource cache, no model importer, no plugin system, no PBR renderer. If one of these starts to appear, it is a sign Easy3D is drifting toward being an engine — stop and reconsider. See <a href="design-principles.html">Design Principles</a>.</p>

@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html" class="active">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -42,6 +45,8 @@
   <div class="hero">
     <p><code>Easy3D::DebugDraw</code> queues debug primitives — line segments and axis-aligned boxes — for development overlays. <code>Line()</code>/<code>Box()</code> store one <code>DebugLine</code>/<code>DebugBox</code> per call; <code>Lines()</code>/<code>Boxes()</code> expose them so a future CPU-side vertex builder / CNA draw path can consume them. <strong>This class does no GPU work itself.</strong></p>
   </div>
+
+  <div class="note">Unlike <a href="billboard-batch.html"><code>BillboardBatch</code></a> and <a href="cube-batch.html"><code>CubeBatch</code></a>, <code>DebugDraw</code> has no vertex builder or renderer adapter yet — it is the one shape left in Phase&nbsp;3/4. There is no concrete Galaxy Eggbert consumer driving it yet, so it stays a plain data queue until one shows up. See the <a href="roadmap.html">Roadmap</a>.</div>
 
 <pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/DebugDraw.hpp&gt;</span>
 
@@ -121,7 +126,7 @@ debug.<span class="fn">Line</span>(<span class="ty">Vector3</span>::Zero, <span 
 <span class="cm">// Later: iterate debug.Lines() / debug.Boxes() in your overlay renderer.</span></code></pre>
 
   <h2>Scope</h2>
-  <p>Deliberately minimal: no colors, no durations/timers, no spheres or text. Those may or may not arrive later — only if Galaxy Eggbert needs them (see <a href="design-principles.html">Design Principles</a>). Rendering the queued primitives is Roadmap Phase&nbsp;3/4 work, same as the other batches.</p>
+  <p>Deliberately minimal: no colors, no durations/timers, no spheres or text. Those may or may not arrive later — only if Galaxy Eggbert needs them (see <a href="design-principles.html">Design Principles</a>). Rendering the queued primitives is the last remaining piece of Roadmap Phase&nbsp;3/4 — <a href="cube-mesh.html">cubes</a> and <a href="billboard-mesh.html">billboards</a> already made it all the way to a real <a href="cube-mesh-renderer.html">renderer adapter</a>.</p>
 
   <footer>
     <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>

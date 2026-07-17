@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CubeMeshRenderer — Easy3D Documentation</title>
+<meta name="description" content="Easy3D::CubeMeshRenderer API reference — the CNA renderer adapter that uploads CubeMesh vertex/index data to GPU buffers and issues indexed draw calls.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+  <div class="logo"><a href="index.html">Easy3D</a><small>C++ helper library for CNA</small></div>
+  <h3>Guide</h3>
+  <a href="index.html">Overview</a>
+  <a href="getting-started.html">Getting Started</a>
+  <a href="building.html">Building &amp; CMake</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="design-principles.html">Design Principles</a>
+  <a href="roadmap.html">Roadmap &amp; Status</a>
+  <h3>Cameras</h3>
+  <a href="camera3d.html">Camera3D</a>
+  <a href="orbit-camera.html">OrbitCamera</a>
+  <a href="follow-camera.html">FollowCamera</a>
+  <h3>Data &amp; Batching</h3>
+  <a href="texture-atlas.html">TextureAtlas</a>
+  <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
+  <a href="cube-batch.html">CubeBatch</a>
+  <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html" class="active">CubeMeshRenderer</a>
+  <a href="debug-draw.html">DebugDraw</a>
+  <h3>Reference</h3>
+  <a href="version.html">Version</a>
+  <a href="testing.html">Testing</a>
+  <h3>Examples</h3>
+  <a href="examples.html">Minimal Example</a>
+  <a href="recipes.html">Recipes</a>
+  <a href="faq.html">FAQ</a>
+</nav>
+<main>
+  <h1>CubeMeshRenderer <span class="badge cna-link">requires CNA link</span></h1>
+  <p class="crumb"><a href="index.html">Easy3D</a> / Data &amp; Batching / CubeMeshRenderer</p>
+
+  <div class="hero">
+    <p><code>Easy3D::CubeMeshRenderer</code> is Easy3D's first Roadmap Phase&nbsp;4 CNA renderer adapter: it uploads a <a href="cube-mesh.html"><code>CubeMesh</code></a>'s vertex/index arrays to real GPU buffers <strong>once</strong>, then <code>Draw()</code> issues indexed <code>TriangleList</code> draw calls on demand. It knows nothing about tiles, gameplay, or cameras — the caller owns and configures the <code>BasicEffect</code> (World/View/Projection/Texture) before calling <code>Draw()</code>.</p>
+  </div>
+
+<pre><code><span class="op">#include</span> <span class="st">&lt;Easy3D/CubeMeshRenderer.hpp&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Easy3D</span> { <span class="kw">class</span> <span class="ty">CubeMeshRenderer</span>; }</code></pre>
+
+  <div class="note">This is real, rendering, GPU-touching code — the first place in Easy3D that actually calls <code>GraphicsDevice::DrawIndexedPrimitives</code>. Everything upstream of it (<a href="cube-batch.html"><code>CubeBatch</code></a>, <a href="cube-mesh.html"><code>CubeMesh</code></a>) is still plain CPU data.</div>
+
+  <h2>The draw-path decision</h2>
+  <p>Easy3D issues cube/billboard draws with raw <code>VertexBuffer</code> + <code>IndexBuffer</code> + <code>BasicEffect</code> + <code>GraphicsDevice::DrawIndexedPrimitives</code> — the same pattern CNA's own <code>examples/house3d_demo.cpp</code> already proves works (build GPU buffers once, <code>SetVertexBuffer</code>/<code>Indices</code>/<code>DrawIndexedPrimitives</code> per frame inside a <code>pass.Apply()</code> loop). <code>SpriteBatch</code> was considered and rejected: it is 2D-only, not usable for cube/billboard geometry.</p>
+
+  <h2>Constructor — uploads once</h2>
+  <div class="method">
+    <div class="sig">CubeMeshRenderer(GraphicsDevice&amp; device,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const std::vector&lt;CubeVertex&gt;&amp; vertices,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const std::vector&lt;std::uint32_t&gt;&amp; indices)</div>
+    <div class="desc">Uploads <code>vertices</code>/<code>indices</code> to new GPU <code>VertexBuffer</code>/<code>IndexBuffer</code> objects immediately. <code>indices.size()</code> must be a multiple of 3 (whole triangles); otherwise throws <code>std::invalid_argument</code>.</div>
+  </div>
+  <p>Internally, each <a href="cube-mesh.html"><code>CubeVertex</code></a><code>{Position, Uv}</code> converts 1:1 to CNA's <code>VertexPositionTexture{Position, TextureCoordinate}</code> — the field layouts match exactly, so there is no reordering or reinterpretation, just a straight copy. The index buffer always uses 32-bit indices (<code>IndexElementSize::ThirtyTwoBits</code>), matching <a href="cube-mesh.html"><code>CubeMesh</code></a>'s <code>std::uint32_t</code> output.</p>
+
+  <h2>Draw</h2>
+  <div class="method">
+    <div class="sig">void Draw(GraphicsDevice&amp; device, BasicEffect&amp; effect) const</div>
+    <div class="desc">Draws the uploaded mesh once per pass of <code>effect</code>'s current technique: for each pass, calls <code>pass.Apply()</code>, binds the renderer's vertex/index buffers, and issues one <code>DrawIndexedPrimitives(TriangleList, ...)</code> call covering the whole mesh. <code>effect</code>'s World/View/Projection and, if texturing is wanted, TextureEnabled/Texture must already be set by the caller <em>before</em> calling <code>Draw()</code>.</div>
+  </div>
+  <div class="method">
+    <div class="sig">[[nodiscard]] int VertexCount() const noexcept<br>[[nodiscard]] int PrimitiveCount() const noexcept</div>
+    <div class="desc">The uploaded vertex count and triangle count (<code>indices.size() / 3</code>) — handy for stats/debug overlays.</div>
+  </div>
+
+  <h2>Lifecycle — build once, draw many times</h2>
+  <p>Unlike <a href="billboard-mesh-renderer.html"><code>BillboardMeshRenderer</code></a>, a <code>CubeMeshRenderer</code>'s geometry is camera-independent — cube positions don't change when the camera moves. Build it <strong>once</strong> (on load, or whenever the level's cube batch actually changes) and call <code>Draw()</code> every frame against it:</p>
+<pre><code><span class="cm">// On load / level change:</span>
+std::vector&lt;<span class="ty">Easy3D</span>::<span class="ty">CubeVertex</span>&gt; vertices;
+std::vector&lt;std::uint32_t&gt;      indices;
+<span class="ty">Easy3D</span>::<span class="fn">BuildCubeMesh</span>(terrain, vertices, indices);
+<span class="ty">Easy3D</span>::<span class="ty">CubeMeshRenderer</span> terrainRenderer(graphicsDevice, vertices, indices);
+
+<span class="cm">// Each frame:</span>
+effect.World      = <span class="ty">Matrix</span>::Identity;
+effect.View        = camera.<span class="fn">GetViewMatrix</span>();
+effect.Projection  = camera.<span class="fn">GetProjectionMatrix</span>();
+effect.TextureEnabled = <span class="kw">true</span>;
+effect.Texture         = tilesTexture;   <span class="cm">// the CNA texture your TextureAtlas describes</span>
+
+terrainRenderer.<span class="fn">Draw</span>(graphicsDevice, effect);</code></pre>
+
+  <h2>Verification</h2>
+  <p><code>CubeMeshRenderer</code>'s constructor needs a <em>live</em> <code>GraphicsDevice&amp;</code>, which only exists once a real CNA <code>Game</code> has opened a window — something a plain test <code>main()</code> cannot produce. So Easy3D's own test suite only <strong>compile-checks</strong> it (see <a href="testing.html">Testing</a>); the real runtime verification was done end-to-end against Galaxy Eggbert's actual windowed binary, with a center-screen pixel readback confirming real, non-background pixels were drawn.</p>
+
+  <div class="note">See <a href="cube-mesh.html">CubeMesh</a> for how to produce the <code>vertices</code>/<code>indices</code> this class consumes, and <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a> for the equivalent adapter for camera-facing quads.</div>
+
+  <footer>
+    <p>Easy3D 0.1.0 — MIT License. A companion library for <a href="https://cna.openeggbert.com">CNA</a> (CNA itself is licensed under the Ms-PL).</p>
+    <p>Source: <a href="https://github.com/openeggbert/easy-3d">github.com/openeggbert/easy-3d</a> · Part of the <a href="https://openeggbert.com">Open Eggbert</a> project.</p>
+  </footer>
+</main>
+</body>
+</html>

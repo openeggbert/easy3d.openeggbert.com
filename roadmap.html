@@ -24,8 +24,11 @@
   <h3>Data &amp; Batching</h3>
   <a href="texture-atlas.html">TextureAtlas</a>
   <a href="billboard-batch.html">BillboardBatch</a>
+  <a href="billboard-mesh.html">BillboardMesh</a>
+  <a href="billboard-mesh-renderer.html">BillboardMeshRenderer</a>
   <a href="cube-batch.html">CubeBatch</a>
   <a href="cube-mesh.html">CubeMesh</a>
+  <a href="cube-mesh-renderer.html">CubeMeshRenderer</a>
   <a href="debug-draw.html">DebugDraw</a>
   <h3>Reference</h3>
   <a href="version.html">Version</a>
@@ -76,14 +79,20 @@
     <h3>Phase 3 — CPU-side vertex builders <span class="status">in progress</span></h3>
     <p>Turn queued <code>BillboardItem</code> / <code>CubeItem</code> / <code>DebugLine</code> / <code>DebugBox</code> data into vertex/index arrays (CPU-side geometry only) — still no GPU calls, no <code>GraphicsDevice</code>, no shaders.</p>
     <ul>
-      <li><strong>Done:</strong> <a href="cube-mesh.html"><code>AppendCubeMesh</code> / <code>BuildCubeMesh</code></a> — <code>CubeBatch</code> items → plain <code>std::vector</code> vertex/index arrays.</li>
-      <li><strong>Remaining:</strong> billboard and debug-line vertex builders.</li>
+      <li><strong>Done:</strong> <a href="cube-mesh.html"><code>AppendCubeMesh</code> / <code>BuildCubeMesh</code></a> — <code>CubeBatch</code> items → plain <code>std::vector</code> vertex/index arrays. Later extended with related standalone shapes on the same data model: <a href="cube-mesh.html"><code>DirectionalCubeItem</code></a> (per-face UV/visibility), <a href="cube-mesh.html"><code>PlateItem</code></a> (flat double-sided panel), <a href="cube-mesh.html"><code>TripleCrossItem</code></a> (3-plane cross billboard), <a href="cube-mesh.html"><code>PyramidTipItem</code></a> (hanging spike).</li>
+      <li><strong>Done:</strong> <a href="billboard-mesh.html"><code>AppendBillboardMesh</code> / <code>BuildBillboardMesh</code></a> — camera-facing <code>BillboardBatch</code> items → vertex/index arrays, rebuilt whenever the camera moves.</li>
+      <li><strong>Remaining:</strong> a debug line/box vertex builder — the one Phase&nbsp;3 gap left.</li>
     </ul>
   </div>
 
-  <div class="phase future">
-    <h3>Phase 4 — CNA renderer adapters <span class="status">future</span></h3>
-    <p>Consume the Phase 3 vertex/index data and actually issue CNA draw calls (<code>GraphicsDevice</code>, <code>BasicEffect</code>/<code>SpriteBatch</code>, vertex/index buffers). This is the first phase that requires a concrete CNA draw-path decision.</p>
+  <div class="phase wip">
+    <h3>Phase 4 — CNA renderer adapters <span class="status">in progress</span></h3>
+    <p>Consume the Phase 3 vertex/index data and actually issue CNA draw calls (<code>GraphicsDevice</code>, <code>BasicEffect</code>, vertex/index buffers). <strong>Draw-path decision (made, 2026-07-02):</strong> raw <code>VertexBuffer</code> + <code>IndexBuffer</code> + <code>BasicEffect</code> + <code>GraphicsDevice::DrawIndexedPrimitives</code> — the same pattern CNA's own <code>examples/house3d_demo.cpp</code> proves works. <code>SpriteBatch</code> was considered and rejected: it is 2D-only, not usable for cube/billboard geometry.</p>
+    <ul>
+      <li><strong>Done:</strong> <a href="cube-mesh-renderer.html"><code>Easy3D::CubeMeshRenderer</code></a> — uploads a <code>CubeMesh</code>'s vertex/index arrays to GPU buffers once, then <code>Draw(GraphicsDevice&amp;, BasicEffect&amp;)</code> issues the indexed draw call. Verified end-to-end from a real windowed Galaxy Eggbert binary (center-screen pixel readback confirmed real, non-background pixels).</li>
+      <li><strong>Done:</strong> <a href="billboard-mesh-renderer.html"><code>Easy3D::BillboardMeshRenderer</code></a> — the same adapter shape for camera-facing quads; must be rebuilt (new instance) whenever the camera moves, since billboard vertex positions are baked in camera-facing at build time.</li>
+      <li><strong>Remaining:</strong> a debug line/box renderer adapter — not started.</li>
+    </ul>
   </div>
 
   <div class="phase future">
@@ -108,9 +117,9 @@
   <table>
     <tr><th>Configuration</th><th>Builds</th><th>Tests</th></tr>
     <tr><td>Default (headers-only)</td><td><code>libeasy3d.a</code> + CNA-free tests + compile-only checks of the CNA-dependent tests/example</td><td><code>basics</code>, <code>texture_atlas</code> pass</td></tr>
-    <tr><td>CNA-linked (<code>-DEASY3D_LINK_CNA=ON</code>)</td><td>SHARP_RUNTIME + backend + CNA + easy3d + camera example + all test executables</td><td><code>basics</code>, <code>texture_atlas</code>, <code>camera</code>, <code>batches</code>, <code>cube_mesh</code> pass</td></tr>
+    <tr><td>CNA-linked (<code>-DEASY3D_LINK_CNA=ON</code>)</td><td>SHARP_RUNTIME + backend + CNA + easy3d + camera example + all runnable test executables</td><td><code>basics</code>, <code>texture_atlas</code>, <code>camera</code>, <code>batches</code>, <code>cube_mesh</code>, <code>billboard_mesh</code> pass</td></tr>
   </table>
-  <p>See <a href="testing.html">Testing</a> for how the two-tier test setup works.</p>
+  <p>The <code>CubeMeshRenderer</code>/<code>BillboardMeshRenderer</code> tests are compile-checked only, in <em>every</em> configuration — they need a live <code>GraphicsDevice</code> from an open window, which a plain test <code>main()</code> can't produce. See <a href="testing.html">Testing</a> for how the full two-tier test setup works.</p>
 
   <h2>Hard limits (do not cross without explicit approval)</h2>
   <p>No ECS, physics, navigation, networking, editor, asset database, resource cache, model importer, MeshCraft import, plugin system, or PBR renderer. The reasoning is on <a href="design-principles.html">Design Principles</a>.</p>
